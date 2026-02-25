@@ -2,7 +2,7 @@
  * AdaptiFocus Popup — Google Sign-In + Dashboard
  */
 
-const API_BASE = "http://localhost:8000"; // Change for production
+const API_BASE = "https://adaptifocus.onrender.com"; // Production
 
 let token = null;
 let user = null;

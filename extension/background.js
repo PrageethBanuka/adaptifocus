@@ -5,7 +5,7 @@
  * sends events to the backend, and checks for intervention decisions.
  */
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = "https://adaptifocus.onrender.com"; // Production
 const CHECK_INTERVAL_MS = 10000; // Check every 10 seconds
 const EVENT_FLUSH_INTERVAL_MS = 30000; // Flush events every 30 seconds
 

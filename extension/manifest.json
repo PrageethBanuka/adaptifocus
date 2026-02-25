@@ -12,6 +12,7 @@
   ],
   "host_permissions": [
     "http://localhost:8000/*",
+    "https://adaptifocus.onrender.com/*",
     "https://*.adaptifocus.app/*"
   ],
   "oauth2": {
