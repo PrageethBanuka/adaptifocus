@@ -34,6 +34,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Always show dev login (backend DEV_MODE controls whether it works)
   document.getElementById("dev-login-btn").style.display = "block";
+  document.getElementById("dev-submit-btn").addEventListener("click", devSubmit);
 });
 
 function showView(name) {
@@ -100,13 +101,24 @@ async function googleSignIn() {
 }
 
 async function devLogin() {
+  // Show the name/email fields
+  const fields = document.getElementById("dev-login-fields");
+  fields.style.display = "block";
+  document.getElementById("dev-name").focus();
+}
+
+async function devSubmit() {
+  const name = document.getElementById("dev-name").value.trim();
+  const email = document.getElementById("dev-email").value.trim();
+  if (!name || !email) return showError("Please enter your name and email");
+
   try {
     const res = await fetch(`${API_BASE}/auth/dev-login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: "dev@test.local", username: "Developer" }),
+      body: JSON.stringify({ email: email, username: name }),
     });
-    if (!res.ok) return showError("Dev login failed");
+    if (!res.ok) return showError("Login failed — is the backend running?");
     const data = await res.json();
     token = data.access_token;
     user = { id: data.user_id, username: data.username, email: data.email, group: data.experiment_group };
@@ -117,7 +129,7 @@ async function devLogin() {
     loadStats();
     loadCurrentTab();
   } catch (e) {
-    showError("Cannot connect to server. Is backend running?");
+    showError("Cannot connect to server. Try again in 30s (server may be waking up).");
   }
 }
 
