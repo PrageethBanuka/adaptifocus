@@ -2,7 +2,7 @@
  * AdaptiFocus Popup — Google Sign-In + Dashboard
  */
 
-const API_BASE = "https://adaptifocus.onrender.com"; // Production
+const API_BASE = "https://adaptifocus.onrender.com"; // Change for production
 
 let token = null;
 let user = null;
@@ -29,10 +29,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("delete-data").addEventListener("click", handleDeleteData);
   document.getElementById("open-dashboard").addEventListener("click", (e) => {
     e.preventDefault();
-    chrome.tabs.create({ url: "http://localhost:5173" });
+    chrome.tabs.create({ url: API_BASE.includes("localhost") ? "http://localhost:5173" : API_BASE + "/docs" });
   });
 
-  // Show dev login button on localhost
+  // Show dev login button only in local dev mode
   if (API_BASE.includes("localhost")) {
     document.getElementById("dev-login-btn").style.display = "block";
   }

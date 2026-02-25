@@ -2,7 +2,7 @@
  * AdaptiFocus Dashboard — API Client
  */
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = "https://adaptifocus.onrender.com";
 
 async function fetchJSON(path) {
   const res = await fetch(`${API_BASE}${path}`);
