@@ -161,9 +161,14 @@ async function checkIntervention() {
   );
 
   try {
+    const headers = { "Content-Type": "application/json" };
+    if (authToken) {
+      headers["Authorization"] = `Bearer ${authToken}`;
+    }
+
     const response = await fetch(`${API_BASE}/interventions/check`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: headers,
       body: JSON.stringify({
         current_url: currentTab.url,
         current_domain: currentTab.domain,
