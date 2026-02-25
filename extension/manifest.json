@@ -5,15 +5,12 @@
   "description": "AI-driven adaptive attention management for students. Detects distraction patterns and provides smart nudges to keep you focused.",
   "permissions": [
     "tabs",
-    "activeTab",
     "alarms",
     "storage",
     "identity"
   ],
   "host_permissions": [
-    "http://localhost:8000/*",
-    "https://adaptifocus.onrender.com/*",
-    "https://*.adaptifocus.app/*"
+    "https://adaptifocus.onrender.com/*"
   ],
   "oauth2": {
     "client_id": "1093375464492-5pkps631cvt2s48n71ld6gfa00o5ldk9.apps.googleusercontent.com",
@@ -26,20 +23,6 @@
   "background": {
     "service_worker": "background.js"
   },
-  "content_scripts": [
-    {
-      "matches": [
-        "<all_urls>"
-      ],
-      "js": [
-        "content.js"
-      ],
-      "css": [
-        "intervention.css"
-      ],
-      "run_at": "document_idle"
-    }
-  ],
   "action": {
     "default_popup": "popup/popup.html",
     "default_icon": {

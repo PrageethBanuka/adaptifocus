@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from database.db import init_db
-from api.routes import events, interventions, sessions, analytics, auth
+from api.routes import events, interventions, sessions, analytics, auth, admin
 
 app = FastAPI(
     title="AdaptiFocus API",
@@ -31,6 +31,7 @@ app.include_router(events.router)
 app.include_router(interventions.router)
 app.include_router(sessions.router)
 app.include_router(analytics.router)
+app.include_router(admin.router)
 
 
 @app.on_event("startup")
