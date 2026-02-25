@@ -8,19 +8,25 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from database.db import get_db
-from database.models import BrowsingEvent, Intervention, StudySession, UserPattern
+from database.models import BrowsingEvent, Intervention, StudySession, UserPattern, User
 from api.models.schemas import FocusSummary, PatternResponse
+from api.auth import require_user
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
 
 @router.get("/focus-summary", response_model=FocusSummary)
-def get_focus_summary(days: int = 1, db: Session = Depends(get_db)):
+def get_focus_summary(
+    days: int = 1,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+):
     """Summary of focus vs distraction for the last N days."""
     since = datetime.utcnow() - timedelta(days=days)
 
     events = (
         db.query(BrowsingEvent)
+        .filter(BrowsingEvent.user_id == user.id)
         .filter(BrowsingEvent.timestamp >= since)
         .all()
     )
@@ -55,6 +61,7 @@ def get_focus_summary(days: int = 1, db: Session = Depends(get_db)):
     # Interventions
     interventions = (
         db.query(Intervention)
+        .filter(Intervention.user_id == user.id)
         .filter(Intervention.timestamp >= since)
         .all()
     )
@@ -82,12 +89,17 @@ def get_focus_summary(days: int = 1, db: Session = Depends(get_db)):
 
 
 @router.get("/hourly-breakdown")
-def get_hourly_breakdown(days: int = 7, db: Session = Depends(get_db)):
+def get_hourly_breakdown(
+    days: int = 7,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+):
     """Hourly focus/distraction breakdown for pattern visualization."""
     since = datetime.utcnow() - timedelta(days=days)
 
     events = (
         db.query(BrowsingEvent)
+        .filter(BrowsingEvent.user_id == user.id)
         .filter(BrowsingEvent.timestamp >= since)
         .all()
     )
@@ -110,10 +122,14 @@ def get_hourly_breakdown(days: int = 7, db: Session = Depends(get_db)):
 
 
 @router.get("/patterns", response_model=list[PatternResponse])
-def get_patterns(db: Session = Depends(get_db)):
+def get_patterns(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+):
     """Get discovered user patterns."""
     return (
         db.query(UserPattern)
+        .filter(UserPattern.user_id == user.id)
         .order_by(UserPattern.confidence.desc())
         .limit(20)
         .all()
@@ -125,12 +141,14 @@ def get_intervention_history(
     days: int = 7,
     limit: int = 50,
     db: Session = Depends(get_db),
+    user: User = Depends(require_user),
 ):
     """Get recent intervention history with outcomes."""
     since = datetime.utcnow() - timedelta(days=days)
 
     interventions = (
         db.query(Intervention)
+        .filter(Intervention.user_id == user.id)
         .filter(Intervention.timestamp >= since)
         .order_by(Intervention.timestamp.desc())
         .limit(limit)
