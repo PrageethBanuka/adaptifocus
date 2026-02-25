@@ -77,6 +77,16 @@ DISTRACTION_KEYWORDS = [
     r"\b(shorts|reel|story|tiktok|snap)s?\b",
 ]
 
+# Specifically block explicit adult content instantly
+ADULT_DOMAINS = {
+    "pornhub.com", "xvideos.com", "xnxx.com", "xhamster.com",
+    "redtube.com", "youporn.com", "chaturbate.com", "onlyfans.com",
+}
+
+ADULT_KEYWORDS = [
+    r"\b(porn|porno|pornography|xxx|nsfw|sex|camgirl|adult\s*video)s?\b",
+]
+
 
 def _extract_domain(url: Optional[str]) -> Optional[str]:
     if not url:
@@ -190,17 +200,25 @@ class ContextAgent(BaseAgent):
                 reasons.append("Recent browsing trend is focused on study content")
 
         # ── Aggregate ────────────────────────────────────────────────────
-        context_score = sum(scores) / max(len(scores), 1)
-        context_score = max(-1.0, min(1.0, context_score))  # Clamp
-
-        if context_score > 0.2:
-            classification = "study"
-        elif context_score < -0.2:
+        is_adult = domain_score <= -2.0 or title_score <= -2.0
+        if is_adult:
+            context_score = -1.0
             classification = "distraction"
+            confidence = 1.0
+            if "Explicit/adult content detected" not in reasons:
+                reasons.append("Explicit/adult content detected")
         else:
-            classification = "neutral"
+            context_score = sum(scores) / max(len(scores), 1)
+            context_score = max(-1.0, min(1.0, context_score))  # Clamp
 
-        confidence = min(1.0, abs(context_score) * 1.5)
+            if context_score > 0.2:
+                classification = "study"
+            elif context_score < -0.2:
+                classification = "distraction"
+            else:
+                classification = "neutral"
+
+            confidence = min(1.0, abs(context_score) * 1.5)
 
         return {
             "classification": classification,
@@ -208,6 +226,7 @@ class ContextAgent(BaseAgent):
             "topic_relevance": round(topic_relevance, 3),
             "context_score": round(context_score, 3),
             "reasons": reasons,
+            "is_adult": is_adult,
         }
 
     # ── Private scoring methods ──────────────────────────────────────────
@@ -215,6 +234,8 @@ class ContextAgent(BaseAgent):
     def _score_domain(self, domain: Optional[str]) -> float:
         if not domain:
             return 0.0
+        if domain in ADULT_DOMAINS:
+            return -2.0  # Instant severe penalty
         if domain in STUDY_DOMAINS:
             return 0.8
         if domain in MIXED_DOMAINS:
@@ -222,6 +243,9 @@ class ContextAgent(BaseAgent):
         if domain in DISTRACTION_DOMAINS:
             return -0.8
         # Check subdomains
+        for dd in ADULT_DOMAINS:
+            if domain.endswith(f".{dd}"):
+                return -2.0
         for sd in STUDY_DOMAINS:
             if domain.endswith(f".{sd}"):
                 return 0.6
@@ -236,6 +260,11 @@ class ContextAgent(BaseAgent):
     def _score_title(self, title: str) -> float:
         if not title:
             return 0.0
+
+        # Instant check for adult keywords
+        for kw in ADULT_KEYWORDS:
+            if re.search(kw, title, re.IGNORECASE):
+                return -2.0
 
         study_hits = sum(
             1 for kw in STUDY_KEYWORDS if re.search(kw, title, re.IGNORECASE)

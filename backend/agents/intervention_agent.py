@@ -110,6 +110,17 @@ class InterventionAgent(BaseAgent):
         classification = context.get("classification", "neutral")
         context_score = context.get("context_score", 0.0)
         confidence = context.get("confidence", 0.0)
+        is_adult = context.get("is_adult", False)
+
+        # ── 🚨 Instant block for explicit adult content ───────────────────
+        if is_adult:
+            return {
+                "should_intervene": True,
+                "level": "hard_block",
+                "message": "Explicit content is blocked. Please maintain focus on your studies.",
+                "urgency": 1.0,
+                "cooldown_seconds": 10,
+            }
 
         # ── No intervention needed for study/neutral content ─────────────
         if classification != "distraction" or confidence < 0.3:
