@@ -186,20 +186,32 @@ async function flushEvents() {
 // ── Intervention checking ───────────────────────────────────────────────────
 
 async function checkIntervention() {
-  if (!currentTab.url || !currentTab.domain) return;
+  // Always get the ACTUAL active tab from Chrome (don't rely on in-memory state
+  // because the service worker gets killed/restarted by Chrome MV3)
+  const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+  if (!activeTab?.url || activeTab.url.startsWith("chrome://") ||
+      activeTab.url.startsWith("chrome-extension://") ||
+      activeTab.url.startsWith("about:")) {
+    return;
+  }
+
+  const domain = extractDomain(activeTab.url);
+  if (!domain) return;
 
   const tok = await getAuthToken();
 
-  const timeOnCurrent = Math.round(
-    (Date.now() - currentTab.startTime) / 1000
-  );
+  // Use in-memory time if tab matches, otherwise assume 30s (one alarm cycle)
+  let timeOnCurrent = 30;
+  if (currentTab.url === activeTab.url) {
+    timeOnCurrent = Math.round((Date.now() - currentTab.startTime) / 1000);
+  }
 
-  // Also restore session if needed
-  if (!currentTab.sessionId) {
+  // Restore session from storage if needed
+  let sessionId = currentTab.sessionId;
+  if (!sessionId) {
     const stored = await chrome.storage.local.get(["active_session_id"]);
-    if (stored.active_session_id) {
-      currentTab.sessionId = stored.active_session_id;
-    }
+    sessionId = stored.active_session_id || null;
   }
 
   try {
@@ -212,65 +224,51 @@ async function checkIntervention() {
       method: "POST",
       headers: headers,
       body: JSON.stringify({
-        current_url: currentTab.url,
-        current_domain: currentTab.domain,
-        current_title: currentTab.title,
+        current_url: activeTab.url,
+        current_domain: domain,
+        current_title: activeTab.title || "",
         time_on_current_seconds: timeOnCurrent,
-        session_id: currentTab.sessionId,
+        session_id: sessionId,
       }),
     });
 
     const result = await response.json();
-    console.log("[AdaptiFocus] Intervention check result:", result.should_intervene, result.level);
+    console.log("[AdaptiFocus] Intervention check:", domain, "=>", result.should_intervene, result.level);
 
     if (result.should_intervene) {
-      console.log("[AdaptiFocus] Intervention triggered! Sending to active tab...");
-      // Send intervention to content script
-      const [activeTab] = await chrome.tabs.query({
-        active: true,
-        currentWindow: true,
-      });
-      console.log("[AdaptiFocus] Active tab:", activeTab?.id, activeTab?.url);
+      console.log("[AdaptiFocus] Intervention triggered! Sending to tab:", activeTab.id, activeTab.url);
 
-      if (activeTab?.id && activeTab.url &&
-          !activeTab.url.startsWith("chrome://") &&
-          !activeTab.url.startsWith("chrome-extension://") &&
-          !activeTab.url.startsWith("about:")) {
+      const msg = {
+        type: "INTERVENTION",
+        level: result.level,
+        message: result.message,
+        urgency: result.distraction_score,
+      };
 
-        const msg = {
-          type: "INTERVENTION",
-          level: result.level,
-          message: result.message,
-          urgency: result.distraction_score,
-        };
+      // Always inject content script first to ensure it's loaded
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: activeTab.id },
+          files: ["content.js"],
+        });
+        await chrome.scripting.insertCSS({
+          target: { tabId: activeTab.id },
+          files: ["intervention.css"],
+        });
+        console.log("[AdaptiFocus] Content script injected into tab:", activeTab.id);
+      } catch (injectErr) {
+        console.log("[AdaptiFocus] Injection skipped:", injectErr.message);
+      }
 
-        // Always inject content script first to ensure it's loaded
-        try {
-          await chrome.scripting.executeScript({
-            target: { tabId: activeTab.id },
-            files: ["content.js"],
-          });
-          await chrome.scripting.insertCSS({
-            target: { tabId: activeTab.id },
-            files: ["intervention.css"],
-          });
-          console.log("[AdaptiFocus] Content script injected into tab:", activeTab.id);
-        } catch (injectErr) {
-          console.log("[AdaptiFocus] Injection skipped (already loaded or restricted page):", injectErr.message);
-        }
+      // Small delay to let content script initialize
+      await new Promise(r => setTimeout(r, 200));
 
-        // Small delay to let content script initialize
-        await new Promise(r => setTimeout(r, 100));
-
-        // Now send the message
-        try {
-          await chrome.tabs.sendMessage(activeTab.id, msg);
-          console.log("[AdaptiFocus] ✅ Intervention message sent successfully!");
-        } catch (sendErr) {
-          console.error("[AdaptiFocus] ❌ Failed to send message:", sendErr);
-        }
-      } else {
-        console.log("[AdaptiFocus] Skipped — active tab is a chrome:// or restricted page");
+      // Now send the message
+      try {
+        await chrome.tabs.sendMessage(activeTab.id, msg);
+        console.log("[AdaptiFocus] ✅ Intervention message sent!");
+      } catch (sendErr) {
+        console.error("[AdaptiFocus] ❌ Failed to send message:", sendErr);
       }
     }
   } catch (e) {
