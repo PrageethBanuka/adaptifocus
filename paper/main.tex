@@ -1,0 +1,180 @@
+% AdaptiFocus: AI-Driven Adaptive Attention Management
+% for Academic Digital Wellbeing
+%
+% Paper template for IEEE/ACM conference submission
+
+\documentclass[conference]{IEEEtran}
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{booktabs}
+
+\begin{document}
+
+\title{AdaptiFocus: AI-Driven Adaptive Attention Management for Academic Digital Wellbeing}
+
+\author{
+\IEEEauthorblockN{Banuka Rajapaksha}
+\IEEEauthorblockA{
+Department of Computer Engineering \\
+\textit{University Name} \\
+Sri Lanka \\
+email@university.edu}
+}
+
+\maketitle
+
+\begin{abstract}
+Digital distractions significantly impair academic productivity among university students, with studies showing 2-4 hours of daily productive time lost to non-academic browsing. Existing distraction management tools rely on binary blocking mechanisms that lack personalization and context awareness. We present \textbf{AdaptiFocus}, a multi-agent system that learns individual distraction patterns and delivers context-aware, graduated micro-interventions through a browser extension. Our system employs three specialized agents—Pattern Agent, Context Agent, and Intervention Agent—orchestrated by a Coordinator Agent. Unlike traditional blockers, AdaptiFocus implements a novel graduated intervention strategy (nudge $\rightarrow$ warn $\rightarrow$ soft-block $\rightarrow$ hard-block) with thresholds dynamically adjusted based on learned behavioral patterns and academic context. We evaluate AdaptiFocus through a user study with [N] participants over [M] weeks, demonstrating a [X]\% improvement in study session focus time and a [Y]\% reduction in distraction episodes compared to baseline and static-blocking conditions.
+\end{abstract}
+
+\begin{IEEEkeywords}
+digital wellbeing, attention management, multi-agent systems, adaptive intervention, browser extension, machine learning, human-computer interaction
+\end{IEEEkeywords}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Introduction}
+\label{sec:intro}
+
+The proliferation of digital content has created an attention economy where students compete not only for academic achievement but against algorithmically optimized distractions. Studies report that university students spend an average of 2-4 hours daily on non-academic digital activities during intended study periods \cite{mark2014bored}.
+
+Current approaches to digital distraction management fall into two categories: (1) self-regulation tools that provide usage statistics, and (2) blocking tools that prevent access to specified websites. Both approaches suffer from critical limitations:
+
+\begin{itemize}
+    \item \textbf{Lack of personalization}: Static block lists do not adapt to individual distraction patterns.
+    \item \textbf{Binary enforcement}: All-or-nothing blocking frustrates users and leads to tool abandonment.
+    \item \textbf{Context blindness}: No awareness of what the user is studying or their deadline proximity.
+    \item \textbf{No pattern learning}: Unable to identify when and why a user is most vulnerable to distraction.
+\end{itemize}
+
+We address these limitations with \textbf{AdaptiFocus}, a multi-agent system that:
+
+\begin{enumerate}
+    \item Learns individual distraction patterns (temporal vulnerability, domain risk, distraction chains)
+    \item Classifies browsing context in real-time (study vs. distraction vs. neutral)
+    \item Delivers graduated micro-interventions that escalate based on distraction severity
+    \item Adapts intervention thresholds based on learned patterns and academic context
+\end{enumerate}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Related Work}
+\label{sec:related}
+
+\subsection{Digital Wellbeing Tools}
+% TODO: Expand with literature review
+Prior work on digital wellbeing tools can be categorized into...
+
+\subsection{Attention Management Systems}
+% TODO: Review attention management literature
+
+\subsection{Multi-Agent Systems in HCI}
+% TODO: Review multi-agent approaches in user-facing systems
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{System Architecture}
+\label{sec:architecture}
+
+AdaptiFocus consists of three components: a Chrome browser extension for data collection and intervention delivery, a backend server hosting the multi-agent analysis pipeline, and an analytics dashboard for self-reflection.
+
+\subsection{Multi-Agent Pipeline}
+
+The core of AdaptiFocus is a pipeline of four specialized agents:
+
+\subsubsection{Pattern Agent}
+Analyzes browsing history to discover behavioral patterns including:
+\begin{itemize}
+    \item \textbf{Hourly vulnerability}: Per-hour distraction ratio identifying high-risk time windows
+    \item \textbf{Domain risk scoring}: Per-domain distraction probability
+    \item \textbf{Distraction chains}: Common sequences of distracting sites
+    \item \textbf{Long-dwell detection}: Sites where average distraction duration exceeds thresholds
+\end{itemize}
+
+\subsubsection{Context Agent}
+Classifies the current browsing state as \textit{study}, \textit{distraction}, or \textit{neutral} using:
+\begin{itemize}
+    \item Domain categorization (known study vs. distraction domains)
+    \item Title keyword analysis (academic vs. entertainment keywords)
+    \item Topic relevance scoring (keyword overlap with active study topic)
+    \item Browsing trajectory analysis (trend of recent domain classifications)
+\end{itemize}
+
+\subsubsection{Intervention Agent}
+Implements the graduated intervention strategy with four levels:
+\begin{enumerate}
+    \item \textbf{Nudge}: Subtle reminder after 30s on a distracting site
+    \item \textbf{Warn}: Prominent warning with focus statistics after 2 min
+    \item \textbf{Soft Block}: Page overlay with 15s delay before access after 5 min
+    \item \textbf{Hard Block}: Full page block requiring explicit override after 10 min
+\end{enumerate}
+
+Thresholds are dynamically adjusted based on the Pattern Agent's domain risk scores and whether a study session is active.
+
+\subsubsection{Coordinator Agent}
+Orchestrates the three sub-agents in a sequential pipeline, feeding pattern analysis and context classification into the intervention decision.
+
+\subsection{Feature Engineering}
+
+We extract 20 behavioral features from browsing events, grouped into five categories:
+\begin{itemize}
+    \item \textbf{Temporal}: Hour distribution, time-of-day ratios
+    \item \textbf{Duration}: Mean, std, max, total duration statistics
+    \item \textbf{Behavioral}: Unique domains, switch rate, events per domain
+    \item \textbf{Distraction}: Ratio, count, duration distribution
+    \item \textbf{Sequential}: Max streak length, distraction-to-focus transitions
+\end{itemize}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Implementation}
+\label{sec:implementation}
+
+% TODO: Detail implementation specifics
+\subsection{Browser Extension}
+Chrome Manifest V3 extension with background service worker...
+
+\subsection{Backend}
+FastAPI-based REST API with SQLite database...
+
+\subsection{Machine Learning Pipeline}
+Random Forest classifier for behavioral pattern classification...
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Evaluation}
+\label{sec:evaluation}
+
+\subsection{Study Design}
+% TODO: Design and execute user study
+
+\subsection{Metrics}
+We evaluate AdaptiFocus on the following metrics:
+\begin{itemize}
+    \item \textbf{Focus time ratio}: Percentage of study session spent on academic content
+    \item \textbf{Distraction episodes}: Number of times user accessed distracting content
+    \item \textbf{Intervention effectiveness}: Percentage of interventions resulting in return to study
+    \item \textbf{User satisfaction}: System Usability Scale (SUS) score
+    \item \textbf{Classification accuracy}: F1-score of the context classification
+\end{itemize}
+
+\subsection{Results}
+% TODO: Fill with actual results
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Discussion}
+\label{sec:discussion}
+
+% TODO: Discuss findings, limitations, future work
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Conclusion}
+\label{sec:conclusion}
+
+We presented AdaptiFocus, a multi-agent system for adaptive attention management in academic contexts. Our graduated intervention approach—informed by learned behavioral patterns and real-time context analysis—provides a more nuanced alternative to binary website blocking. Initial results suggest that context-aware, personalized interventions can meaningfully improve study session focus without the frustration of rigid blocking mechanisms.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}

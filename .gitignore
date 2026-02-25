@@ -1,0 +1,43 @@
+# .gitignore for AdaptiFocus
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+venv/
+.venv/
+
+# Data & Models
+backend/data/
+*.db
+*.pkl
+*.csv
+
+# Node
+node_modules/
+dashboard/dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+
+# Extension package
+extension.zip
+
+# Gemini agent artifacts
+.gemini/
