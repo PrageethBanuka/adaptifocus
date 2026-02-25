@@ -16,7 +16,7 @@
     "https://*.adaptifocus.app/*"
   ],
   "oauth2": {
-    "client_id": "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com",
+    "client_id": "1093375464492-5pkps631cvt2s48n71ld6gfa00o5ldk9.apps.googleusercontent.com",
     "scopes": [
       "openid",
       "email",
