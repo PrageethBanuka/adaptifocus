@@ -124,30 +124,39 @@ async function devLogin() {
 // ── Auth State ──────────────────────────────────────────────────────────
 
 async function checkAuth() {
+  // Show main view immediately from cached data
+  if (token && user) {
+    showView("main");
+    document.getElementById("user-name").textContent = user.username || "User";
+    loadStats();
+    loadCurrentTab();
+  }
+
+  // Verify token in background (don't block UI)
   try {
     const res = await fetch(`${API_BASE}/auth/me`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (!res.ok) { await handleLogout(); return; }
+    if (res.status === 401) {
+      // Token is actually invalid — force re-login
+      await handleLogout();
+      return;
+    }
+    if (!res.ok) return; // Server error — keep cached session
 
     const profile = await res.json();
     if (!profile.consent_given) {
       showView("consent");
       const consentUser = document.getElementById("consent-user");
       consentUser.innerHTML = `<strong>${profile.username}</strong><br><span style="color:#888">${profile.email}</span>`;
-    } else {
-      showView("main");
-      document.getElementById("user-name").textContent = user?.username || "User";
-      if (user?.picture || profile.picture) {
-        const avatar = document.getElementById("user-avatar");
-        avatar.src = profile.picture || user.picture;
-        avatar.style.display = "block";
-      }
-      loadStats();
-      loadCurrentTab();
+    } else if (profile.picture) {
+      const avatar = document.getElementById("user-avatar");
+      avatar.src = profile.picture;
+      avatar.style.display = "block";
     }
   } catch (e) {
-    showView("login");
+    // Network error (cold start) — keep cached session, don't force login
+    console.warn("[AdaptiFocus] Auth check failed (backend may be waking up):", e);
   }
 }
 
