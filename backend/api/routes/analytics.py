@@ -63,8 +63,11 @@ def get_focus_summary(days: int = 1, db: Session = Depends(get_db)):
         (success_count / len(interventions) * 100) if interventions else 0.0
     )
 
+    distraction_events = sum(1 for e in events if e.is_distraction)
+
     return FocusSummary(
         total_events=len(events),
+        distraction_events=distraction_events,
         total_seconds=total_seconds,
         focus_seconds=focus_seconds,
         distraction_seconds=distraction_seconds,

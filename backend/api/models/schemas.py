@@ -98,6 +98,7 @@ class FocusSummary(BaseModel):
     """Summary statistics for dashboard."""
 
     total_events: int = 0
+    distraction_events: int = 0
     total_seconds: int = 0
     focus_seconds: int = 0
     distraction_seconds: int = 0
