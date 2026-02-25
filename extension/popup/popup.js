@@ -252,16 +252,42 @@ function displayClassification(result) {
 
 let sessionInterval = null, sessionStart = null;
 
+// Restore active session on popup open
+(async () => {
+  const stored = await chrome.storage.local.get(["active_session_id", "session_start_time"]);
+  if (stored.active_session_id) {
+    sessionStart = stored.session_start_time || Date.now();
+    document.getElementById("start-session").style.display = "none";
+    document.getElementById("stop-session").style.display = "block";
+    document.getElementById("session-timer").style.display = "block";
+    sessionInterval = setInterval(updateTimer, 1000);
+    updateTimer();
+  }
+})();
+
 async function startSession() {
   const topic = document.getElementById("study-topic").value || "General Study";
   try {
-    await fetch(`${API_BASE}/sessions/start`, {
+    const res = await fetch(`${API_BASE}/sessions/start`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ study_topic: topic }),
     });
-  } catch (e) {}
-  sessionStart = Date.now();
+    if (res.ok) {
+      const session = await res.json();
+      // Tell background.js about the session
+      chrome.runtime.sendMessage({ type: "SESSION_STARTED", sessionId: session.id });
+      // Persist session state so it survives popup close
+      sessionStart = Date.now();
+      await chrome.storage.local.set({
+        active_session_id: session.id,
+        session_start_time: sessionStart,
+      });
+    }
+  } catch (e) {
+    console.warn("[AdaptiFocus] Session start failed:", e);
+  }
+  sessionStart = sessionStart || Date.now();
   document.getElementById("start-session").style.display = "none";
   document.getElementById("stop-session").style.display = "block";
   document.getElementById("session-timer").style.display = "block";
@@ -277,12 +303,23 @@ function updateTimer() {
 async function stopSession() {
   clearInterval(sessionInterval);
   try {
-    await fetch(`${API_BASE}/sessions/stop`, {
-      method: "POST", headers: { Authorization: `Bearer ${token}` },
-    });
-  } catch (e) {}
+    const stored = await chrome.storage.local.get(["active_session_id"]);
+    if (stored.active_session_id) {
+      await fetch(`${API_BASE}/sessions/end`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ session_id: stored.active_session_id }),
+      });
+    }
+  } catch (e) {
+    console.warn("[AdaptiFocus] Session end failed:", e);
+  }
+  // Tell background.js session ended
+  chrome.runtime.sendMessage({ type: "SESSION_ENDED" });
+  await chrome.storage.local.remove(["active_session_id", "session_start_time"]);
   document.getElementById("start-session").style.display = "block";
   document.getElementById("stop-session").style.display = "none";
   document.getElementById("session-timer").style.display = "none";
   loadStats();
 }
+

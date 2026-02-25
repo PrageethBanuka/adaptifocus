@@ -6,8 +6,6 @@
  */
 
 const API_BASE = "https://adaptifocus.onrender.com"; // Production
-const CHECK_INTERVAL_MS = 10000; // Check every 10 seconds
-const EVENT_FLUSH_INTERVAL_MS = 30000; // Flush events every 30 seconds
 
 // ── State ───────────────────────────────────────────────────────────────────
 
@@ -23,15 +21,47 @@ let currentTab = {
 let pendingEvents = [];
 let authToken = null;
 
-// Load auth token from storage
-chrome.storage.local.get(["auth_token"], (result) => {
+// ── Restore state from storage on startup ───────────────────────────────────
+
+chrome.storage.local.get(["auth_token", "active_session_id"], (result) => {
   authToken = result.auth_token || null;
+  if (result.active_session_id) {
+    currentTab.sessionId = result.active_session_id;
+  }
+  console.log("[AdaptiFocus] Restored state — token:", !!authToken, "session:", currentTab.sessionId);
 });
 
-// Listen for auth updates from popup
+// ── Listen for auth updates from popup ──────────────────────────────────────
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "AUTH_UPDATE") {
     authToken = message.token;
+    console.log("[AdaptiFocus] Auth token updated:", !!authToken);
+  }
+
+  if (message.type === "SESSION_STARTED") {
+    currentTab.sessionId = message.sessionId;
+    chrome.storage.local.set({ active_session_id: message.sessionId });
+    console.log("[AdaptiFocus] Session started:", message.sessionId);
+  }
+
+  if (message.type === "SESSION_ENDED") {
+    currentTab.sessionId = null;
+    chrome.storage.local.remove("active_session_id");
+    console.log("[AdaptiFocus] Session ended");
+  }
+
+  if (message.type === "GET_STATUS") {
+    const timeOnCurrent = Math.round(
+      (Date.now() - currentTab.startTime) / 1000
+    );
+    sendResponse({
+      currentDomain: currentTab.domain,
+      timeOnCurrent,
+      sessionActive: currentTab.sessionId !== null,
+      sessionId: currentTab.sessionId,
+    });
+    return true;
   }
 });
 
@@ -62,7 +92,6 @@ async function classifyCurrentPage() {
     if (res.ok) {
       const result = await res.json();
       currentTab.classification = result;
-      // Store for popup to read
       chrome.storage.local.set({ current_classification: result });
     }
   } catch (e) {
@@ -121,14 +150,18 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
 // ── Event flushing ──────────────────────────────────────────────────────────
 
+async function getAuthToken() {
+  if (authToken) return authToken;
+  const stored = await chrome.storage.local.get(["auth_token"]);
+  authToken = stored.auth_token || null;
+  return authToken;
+}
+
 async function flushEvents() {
   if (pendingEvents.length === 0) return;
-  if (!authToken) {
-    // Try to get token from storage
-    const stored = await chrome.storage.local.get(["auth_token"]);
-    authToken = stored.auth_token || null;
-    if (!authToken) return; // Can't send without auth
-  }
+
+  const tok = await getAuthToken();
+  if (!tok) return; // Can't send without auth
 
   const batch = [...pendingEvents];
   pendingEvents = [];
@@ -139,13 +172,12 @@ async function flushEvents() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${authToken}`,
+          Authorization: `Bearer ${tok}`,
         },
         body: JSON.stringify(event),
       });
     } catch (e) {
       console.warn("[AdaptiFocus] Failed to send event:", e);
-      // Re-queue failed events
       pendingEvents.push(event);
     }
   }
@@ -156,14 +188,24 @@ async function flushEvents() {
 async function checkIntervention() {
   if (!currentTab.url || !currentTab.domain) return;
 
+  const tok = await getAuthToken();
+
   const timeOnCurrent = Math.round(
     (Date.now() - currentTab.startTime) / 1000
   );
 
+  // Also restore session if needed
+  if (!currentTab.sessionId) {
+    const stored = await chrome.storage.local.get(["active_session_id"]);
+    if (stored.active_session_id) {
+      currentTab.sessionId = stored.active_session_id;
+    }
+  }
+
   try {
     const headers = { "Content-Type": "application/json" };
-    if (authToken) {
-      headers["Authorization"] = `Bearer ${authToken}`;
+    if (tok) {
+      headers["Authorization"] = `Bearer ${tok}`;
     }
 
     const response = await fetch(`${API_BASE}/interventions/check`, {
@@ -179,20 +221,56 @@ async function checkIntervention() {
     });
 
     const result = await response.json();
+    console.log("[AdaptiFocus] Intervention check result:", result.should_intervene, result.level);
 
     if (result.should_intervene) {
+      console.log("[AdaptiFocus] Intervention triggered! Sending to active tab...");
       // Send intervention to content script
       const [activeTab] = await chrome.tabs.query({
         active: true,
         currentWindow: true,
       });
-      if (activeTab?.id) {
-        chrome.tabs.sendMessage(activeTab.id, {
+      console.log("[AdaptiFocus] Active tab:", activeTab?.id, activeTab?.url);
+
+      if (activeTab?.id && activeTab.url &&
+          !activeTab.url.startsWith("chrome://") &&
+          !activeTab.url.startsWith("chrome-extension://") &&
+          !activeTab.url.startsWith("about:")) {
+
+        const msg = {
           type: "INTERVENTION",
           level: result.level,
           message: result.message,
           urgency: result.distraction_score,
-        });
+        };
+
+        // Always inject content script first to ensure it's loaded
+        try {
+          await chrome.scripting.executeScript({
+            target: { tabId: activeTab.id },
+            files: ["content.js"],
+          });
+          await chrome.scripting.insertCSS({
+            target: { tabId: activeTab.id },
+            files: ["intervention.css"],
+          });
+          console.log("[AdaptiFocus] Content script injected into tab:", activeTab.id);
+        } catch (injectErr) {
+          console.log("[AdaptiFocus] Injection skipped (already loaded or restricted page):", injectErr.message);
+        }
+
+        // Small delay to let content script initialize
+        await new Promise(r => setTimeout(r, 100));
+
+        // Now send the message
+        try {
+          await chrome.tabs.sendMessage(activeTab.id, msg);
+          console.log("[AdaptiFocus] ✅ Intervention message sent successfully!");
+        } catch (sendErr) {
+          console.error("[AdaptiFocus] ❌ Failed to send message:", sendErr);
+        }
+      } else {
+        console.log("[AdaptiFocus] Skipped — active tab is a chrome:// or restricted page");
       }
     }
   } catch (e) {
@@ -201,13 +279,14 @@ async function checkIntervention() {
 }
 
 // ── Alarms for periodic tasks ───────────────────────────────────────────────
+// Chrome minimum alarm interval is 0.5 minutes (30 seconds)
 
 chrome.alarms.create("flushEvents", {
-  periodInMinutes: EVENT_FLUSH_INTERVAL_MS / 60000,
+  periodInMinutes: 0.5, // 30 seconds
 });
 
 chrome.alarms.create("checkIntervention", {
-  periodInMinutes: CHECK_INTERVAL_MS / 60000,
+  periodInMinutes: 0.5, // 30 seconds (Chrome enforced minimum)
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
@@ -215,60 +294,6 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     flushEvents();
   } else if (alarm.name === "checkIntervention") {
     checkIntervention();
-  }
-});
-
-// ── Message handling (from popup/content scripts) ───────────────────────────
-
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.type === "START_SESSION") {
-    fetch(`${API_BASE}/sessions/start`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        study_topic: message.topic,
-        planned_duration_minutes: message.duration || 45,
-      }),
-    })
-      .then((r) => r.json())
-      .then((session) => {
-        currentTab.sessionId = session.id;
-        sendResponse({ success: true, session });
-      })
-      .catch((e) => sendResponse({ success: false, error: e.message }));
-    return true; // Keep channel open for async response
-  }
-
-  if (message.type === "END_SESSION") {
-    if (currentTab.sessionId) {
-      fetch(`${API_BASE}/sessions/end`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_id: currentTab.sessionId }),
-      })
-        .then((r) => r.json())
-        .then((session) => {
-          currentTab.sessionId = null;
-          sendResponse({ success: true, session });
-        })
-        .catch((e) => sendResponse({ success: false, error: e.message }));
-    } else {
-      sendResponse({ success: false, error: "No active session" });
-    }
-    return true;
-  }
-
-  if (message.type === "GET_STATUS") {
-    const timeOnCurrent = Math.round(
-      (Date.now() - currentTab.startTime) / 1000
-    );
-    sendResponse({
-      currentDomain: currentTab.domain,
-      timeOnCurrent,
-      sessionActive: currentTab.sessionId !== null,
-      sessionId: currentTab.sessionId,
-    });
-    return true;
   }
 });
 
