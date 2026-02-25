@@ -29,7 +29,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("delete-data").addEventListener("click", handleDeleteData);
   document.getElementById("open-dashboard").addEventListener("click", (e) => {
     e.preventDefault();
-    chrome.tabs.create({ url: "https://adaptifocus-dashboard.onrender.com" });
+    if (token) {
+      chrome.tabs.create({ url: `https://adaptifocus-dashboard.onrender.com?token=${token}` });
+    } else {
+      chrome.tabs.create({ url: "https://adaptifocus-dashboard.onrender.com" });
+    }
   });
 
   // Always show dev login (backend DEV_MODE controls whether it works)

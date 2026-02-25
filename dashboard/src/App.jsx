@@ -15,6 +15,15 @@ function App() {
   const [error, setError] = useState(null)
 
   useEffect(() => {
+    // Check for token in URL (sent by the extension)
+    const params = new URLSearchParams(window.location.search)
+    const urlToken = params.get('token')
+    if (urlToken) {
+      localStorage.setItem('adaptifocus_token', urlToken)
+      // Clean up URL so token isn't visible/bookmarked
+      window.history.replaceState({}, document.title, window.location.pathname)
+    }
+
     loadData()
   }, [days])
 
