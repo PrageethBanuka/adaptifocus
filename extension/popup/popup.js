@@ -29,13 +29,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("delete-data").addEventListener("click", handleDeleteData);
   document.getElementById("open-dashboard").addEventListener("click", (e) => {
     e.preventDefault();
-    chrome.tabs.create({ url: "http://localhost:5173" });
+    chrome.tabs.create({ url: "https://adaptifocus-dashboard.onrender.com" });
   });
 
-  // Show dev login button on localhost
-  if (API_BASE.includes("localhost")) {
+  // Always show dev login (backend DEV_MODE controls whether it works)
   document.getElementById("dev-login-btn").style.display = "block";
-  }
 });
 
 function showView(name) {
