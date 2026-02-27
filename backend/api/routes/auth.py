@@ -106,14 +106,17 @@ def dev_login(req: DevLoginRequest, db: Session = Depends(get_db)):
     if os.getenv("DEV_MODE", "1") != "1":
         raise HTTPException(403, "Dev login is only available in development mode")
 
-    user = db.query(User).filter(User.email == req.email).first()
+    # Normalize email to prevent duplicates if typed differently
+    req_email = req.email.strip().lower()
+
+    user = db.query(User).filter(User.email == req_email).first()
     is_new = False
 
     if not user:
         user_count = db.query(User).count()
         groups = ["adaptive", "adaptive", "static_block", "control"]
         user = User(
-            email=req.email,
+            email=req_email,
             username=req.username,
             hashed_password="",
             experiment_group=groups[user_count % len(groups)],

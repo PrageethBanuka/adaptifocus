@@ -8,8 +8,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from database.db import get_db
-from database.models import BrowsingEvent
+from database.models import BrowsingEvent, User
 from api.models.schemas import EventCreate, EventResponse
+from api.auth import require_user
 from agents.context_agent import ContextAgent, _extract_domain, DISTRACTION_DOMAINS, MIXED_DOMAINS
 
 router = APIRouter(prefix="/events", tags=["events"])
@@ -18,7 +19,11 @@ _context_agent = ContextAgent()
 
 
 @router.post("/", response_model=EventResponse)
-def create_event(event: EventCreate, db: Session = Depends(get_db)):
+def create_event(
+    event: EventCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+):
     """Ingest a browsing event from the extension."""
     domain = event.domain or _extract_domain(event.url)
 
@@ -41,6 +46,7 @@ def create_event(event: EventCreate, db: Session = Depends(get_db)):
         distraction_score = max(distraction_score, 0.7)
 
     db_event = BrowsingEvent(
+        user_id=user.id,
         timestamp=event.timestamp or datetime.utcnow(),
         url=event.url,
         domain=domain,
@@ -63,9 +69,14 @@ def list_events(
     offset: int = 0,
     since: Optional[str] = None,
     db: Session = Depends(get_db),
+    user: User = Depends(require_user),
 ):
     """List recent browsing events."""
-    query = db.query(BrowsingEvent).order_by(BrowsingEvent.timestamp.desc())
+    query = (
+        db.query(BrowsingEvent)
+        .filter(BrowsingEvent.user_id == user.id)
+        .order_by(BrowsingEvent.timestamp.desc())
+    )
     if since:
         try:
             since_dt = datetime.fromisoformat(since)
@@ -76,12 +87,16 @@ def list_events(
 
 
 @router.get("/today/summary")
-def today_summary(db: Session = Depends(get_db)):
+def today_summary(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+):
     """Get summary stats for today's browsing activity."""
     today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
 
     events = (
         db.query(BrowsingEvent)
+        .filter(BrowsingEvent.user_id == user.id)
         .filter(BrowsingEvent.timestamp >= today_start)
         .all()
     )
