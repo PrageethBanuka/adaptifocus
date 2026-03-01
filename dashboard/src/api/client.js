@@ -21,7 +21,8 @@ export async function getFocusSummary(days = 1) {
 }
 
 export async function getHourlyBreakdown(days = 7) {
-  return fetchJSON(`/analytics/hourly-breakdown?days=${days}`);
+  const tzOffset = new Date().getTimezoneOffset();
+  return fetchJSON(`/analytics/hourly-breakdown?days=${days}&tz_offset=${tzOffset}`);
 }
 
 export async function getPatterns() {

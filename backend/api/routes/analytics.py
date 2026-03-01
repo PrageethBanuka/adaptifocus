@@ -91,6 +91,7 @@ def get_focus_summary(
 @router.get("/hourly-breakdown")
 def get_hourly_breakdown(
     days: int = 7,
+    tz_offset: int = 0,
     db: Session = Depends(get_db),
     user: User = Depends(require_user),
 ):
@@ -111,7 +112,10 @@ def get_hourly_breakdown(
 
     for e in events:
         if e.timestamp:
-            h = e.timestamp.hour
+            # tz_offset is in minutes (UTC - Local). e.g., -330 for UTC+5:30
+            # So local_time = utc_time - tz_offset
+            local_dt = e.timestamp - timedelta(minutes=tz_offset)
+            h = local_dt.hour
             hourly[h]["total"] += e.duration_seconds
             if e.is_distraction:
                 hourly[h]["distraction"] += e.duration_seconds
@@ -158,7 +162,7 @@ def get_intervention_history(
     return [
         {
             "id": i.id,
-            "timestamp": i.timestamp.isoformat(),
+            "timestamp": i.timestamp.isoformat() + "Z",
             "level": i.level,
             "trigger_domain": i.trigger_domain,
             "duration_on_distraction": i.duration_on_distraction_seconds,
