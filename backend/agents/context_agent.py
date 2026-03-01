@@ -177,10 +177,15 @@ class ContextAgent(BaseAgent):
             title_score = self._score_title_regex(title)
             
         scores.append(title_score)
-        if title_score > 0 and "AI" not in reasons[-1] if reasons else True:
-            reasons.append("Page title contains study-related keywords")
-        elif title_score < 0 and "AI" not in reasons[-1] if reasons else True:
-            reasons.append("Page title contains distraction-related keywords")
+        
+        # Check if the last reason was already provided by AI to avoid duplicates
+        ai_handled = bool(reasons and "AI" in reasons[-1])
+        
+        if not ai_handled:
+            if title_score > 0:
+                reasons.append("Page title contains study-related keywords")
+            elif title_score < 0:
+                reasons.append("Page title contains distraction-related keywords")
 
         # ── 3. Context override: title can flip domain classification ────
         # This is what makes AdaptiFocus smarter than domain blockers.
@@ -239,9 +244,9 @@ class ContextAgent(BaseAgent):
             context_score = sum(scores) / max(len(scores), 1)
             context_score = max(-1.0, min(1.0, context_score))  # Clamp
 
-            if context_score > 0.2:
+            if context_score >= 0.2:
                 classification = "study"
-            elif context_score < -0.2:
+            elif context_score <= -0.2:
                 classification = "distraction"
             else:
                 classification = "neutral"
