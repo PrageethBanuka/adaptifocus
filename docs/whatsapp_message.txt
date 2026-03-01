@@ -1,0 +1,13 @@
+Hey everyone! 🎯 Need your help testing AdaptiFocus. 
+
+It's a Chrome extension that uses AI to analyze if your browsing habits are productive (e.g., watching an ML lecture on YouTube) or distracting (e.g., watching cat videos). It's completely private — it only tracks high-level domains (like 'youtube.com') and time spent, NOT specific URLs or page content.
+
+**Since it's in Beta, here's how to install it (takes 2 mins):**
+1. Download `extension.zip` [INSERT YOUR DRIVE/DROPBOX LINK HERE]
+2. Unzip it to a folder.
+3. Open Chrome and paste `chrome://extensions/` in the URL bar.
+4. Turn ON **Developer Mode** (top right).
+5. Click **Load unpacked** (top left) and select the unzipped folder.
+
+**To Start:**
+Click the 🎯 extension icon, click **Sign Up**, and enter your Name & Email. You'll see your raw stats start tracking on the Dashboard! Let me know if you run into any issues!
