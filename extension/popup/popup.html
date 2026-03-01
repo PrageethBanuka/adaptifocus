@@ -30,7 +30,10 @@
       <div id="dev-login-fields" style="display:none; margin-top:12px;">
         <input type="text" id="dev-name" placeholder="Your Name" class="input-field" style="margin-bottom:8px;">
         <input type="email" id="dev-email" placeholder="Your Email" class="input-field" style="margin-bottom:8px;">
-        <button id="dev-submit-btn" class="btn btn-primary">Login</button>
+        <div style="display: flex; gap: 8px;">
+          <button id="dev-submit-btn" class="btn btn-primary" style="flex: 1;">Login</button>
+          <button id="dev-signup-btn" class="btn btn-secondary" style="flex: 1;">Sign Up</button>
+        </div>
       </div>
       <p id="auth-error" class="error-msg" style="display:none"></p>
     </div>

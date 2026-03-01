@@ -39,6 +39,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Always show dev login (backend DEV_MODE controls whether it works)
   document.getElementById("dev-login-btn").style.display = "block";
   document.getElementById("dev-submit-btn").addEventListener("click", devSubmit);
+  document.getElementById("dev-signup-btn").addEventListener("click", devSignup);
 });
 
 function showView(name) {
@@ -122,19 +123,52 @@ async function devSubmit() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: email, username: name }),
     });
-    if (!res.ok) return showError("Login failed — is the backend running?");
+    
+    if (!res.ok) {
+      if (res.status === 404) return showError("Account not found. Please click Sign Up.");
+      return showError("Login failed — is the backend running?");
+    }
+    
     const data = await res.json();
-    token = data.access_token;
-    user = { id: data.user_id, username: data.username, email: data.email, group: data.experiment_group };
-    await chrome.storage.local.set({ auth_token: token, user_data: user });
-    chrome.runtime.sendMessage({ type: "AUTH_UPDATE", token, user });
-    showView("main");
-    document.getElementById("user-name").textContent = user.username;
-    loadStats();
-    loadCurrentTab();
+    await handleLoginSuccess(data);
   } catch (e) {
     showError("Cannot connect to server. Try again in 30s (server may be waking up).");
   }
+}
+
+async function devSignup() {
+  const name = document.getElementById("dev-name").value.trim();
+  const email = document.getElementById("dev-email").value.trim();
+  if (!name || !email) return showError("Please enter your name and email");
+
+  try {
+    const res = await fetch(`${API_BASE}/auth/dev-signup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email, username: name }),
+    });
+
+    if (!res.ok) {
+      if (res.status === 409) return showError("Account already exists. Please click Login.");
+      return showError("Signup failed — is the backend running?");
+    }
+
+    const data = await res.json();
+    await handleLoginSuccess(data);
+  } catch (e) {
+    showError("Cannot connect to server. Try again in 30s (server may be waking up).");
+  }
+}
+
+async function handleLoginSuccess(data) {
+  token = data.access_token;
+  user = { id: data.user_id, username: data.username, email: data.email, group: data.experiment_group };
+  await chrome.storage.local.set({ auth_token: token, user_data: user });
+  chrome.runtime.sendMessage({ type: "AUTH_UPDATE", token, user });
+  showView("main");
+  document.getElementById("user-name").textContent = user.username;
+  loadStats();
+  loadCurrentTab();
 }
 
 // ── Auth State ──────────────────────────────────────────────────────────

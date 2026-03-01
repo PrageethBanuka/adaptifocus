@@ -106,26 +106,11 @@ def dev_login(req: DevLoginRequest, db: Session = Depends(get_db)):
     if os.getenv("DEV_MODE", "1") != "1":
         raise HTTPException(403, "Dev login is only available in development mode")
 
-    # Normalize email to prevent duplicates if typed differently
     req_email = req.email.strip().lower()
-
     user = db.query(User).filter(User.email == req_email).first()
-    is_new = False
 
     if not user:
-        user_count = db.query(User).count()
-        groups = ["adaptive", "adaptive", "static_block", "control"]
-        user = User(
-            email=req_email,
-            username=req.username,
-            hashed_password="",
-            experiment_group=groups[user_count % len(groups)],
-            consent_given=True,
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-        is_new = True
+        raise HTTPException(status_code=404, detail="User account not found. Please sign up first.")
 
     token = create_token(user.id, user.email)
     return TokenResponse(
@@ -134,7 +119,45 @@ def dev_login(req: DevLoginRequest, db: Session = Depends(get_db)):
         username=user.username,
         email=user.email,
         experiment_group=user.experiment_group,
-        is_new_user=is_new,
+        is_new_user=False,
+    )
+
+
+@router.post("/dev-signup", response_model=TokenResponse)
+def dev_signup(req: DevLoginRequest, db: Session = Depends(get_db)):
+    """Dev mode sign up — explicitly creates a new user."""
+    import os
+    if os.getenv("DEV_MODE", "1") != "1":
+        raise HTTPException(403, "Dev signup is only available in development mode")
+
+    req_email = req.email.strip().lower()
+    user = db.query(User).filter(User.email == req_email).first()
+
+    if user:
+        raise HTTPException(status_code=409, detail="User already exists. Please log in.")
+
+    # Create new user
+    user_count = db.query(User).count()
+    groups = ["adaptive", "adaptive", "static_block", "control"]
+    user = User(
+        email=req_email,
+        username=req.username,
+        hashed_password="",
+        experiment_group=groups[user_count % len(groups)],
+        consent_given=True,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    token = create_token(user.id, user.email)
+    return TokenResponse(
+        access_token=token,
+        user_id=user.id,
+        username=user.username,
+        email=user.email,
+        experiment_group=user.experiment_group,
+        is_new_user=True,
     )
 
 
