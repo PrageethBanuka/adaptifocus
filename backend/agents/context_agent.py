@@ -8,9 +8,17 @@ This agent determines:
 
 from __future__ import annotations
 
+import os
 import re
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
+from functools import lru_cache
+
+try:
+    from google import genai
+    from google.genai import types
+except ImportError:
+    genai = None
 
 from agents.base_agent import BaseAgent
 
@@ -136,7 +144,7 @@ class ContextAgent(BaseAgent):
         recent_domains = data.get("recent_domains", [])
 
         reasons: List[str] = []
-        scores: List[float] = []  # Positive = study, negative = distraction
+        scores: List[float] = []
 
         # ── 1. Domain classification ─────────────────────────────────────
         domain_score = self._score_domain(domain)
@@ -146,13 +154,29 @@ class ContextAgent(BaseAgent):
         elif domain_score < 0:
             reasons.append(f"Domain '{domain}' is typically a distraction")
 
-        # ── 2. Title keyword analysis ────────────────────────────────────
-        title_score = self._score_title(title)
+        # ── 2. Title keyword analysis (or LLM override) ──────────────────
+        title_score = 0.0
+        
+        # If it's a mixed domain (like YouTube), ask Gemini to classify it
+        if domain in MIXED_DOMAINS and genai and os.getenv("GEMINI_API_KEY"):
+            llm_result = self._ask_gemini_classification(title)
+            if llm_result == "distraction":
+                title_score = -0.8
+                reasons.append("AI determined the video/page content is entertainment or distracting")
+            elif llm_result == "study":
+                title_score = 0.8
+                reasons.append("AI determined the video/page content is study or academic material")
+            else:
+                title_score = self._score_title_regex(title)
+        else:
+            # Traditional Regex fallback
+            title_score = self._score_title_regex(title)
+            
         scores.append(title_score)
-        if title_score > 0:
-            reasons.append(f"Page title contains study-related keywords")
-        elif title_score < 0:
-            reasons.append(f"Page title contains distraction-related keywords")
+        if title_score > 0 and "AI" not in reasons[-1] if reasons else True:
+            reasons.append("Page title contains study-related keywords")
+        elif title_score < 0 and "AI" not in reasons[-1] if reasons else True:
+            reasons.append("Page title contains distraction-related keywords")
 
         # ── 3. Context override: title can flip domain classification ────
         # This is what makes AdaptiFocus smarter than domain blockers.
@@ -257,7 +281,42 @@ class ContextAgent(BaseAgent):
                 return -0.6
         return 0.0
 
-    def _score_title(self, title: str) -> float:
+        return 0.0
+
+    @lru_cache(maxsize=500)
+    def _ask_gemini_classification(self, title: str) -> str:
+        """Use Gemini 2.0 Flash to semantically classify confusing titles (e.g. YouTube videos).
+        LRU Cached out-of-the-box so repeating users/clicks do not hit the API twice.
+        """
+        if not title or len(title) < 5:
+            return "neutral"
+            
+        try:
+            client = genai.Client() # Picks up GEMINI_API_KEY from env
+            prompt = (
+                f"You are categorizing browsing history for a university student's productivity app. "
+                f"Is the following video/page title strictly for studying/academics, strictly for entertainment/distraction "
+                f"(like anime, video games, vlogs, memes), or neutral?\n\n"
+                f"Title: \"{title}\"\n\n"
+                f"Respond with EXACTLY ONE WORD from this list: [study, distraction, neutral]"
+            )
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    temperature=0.0,
+                    max_output_tokens=5,
+                )
+            )
+            text = response.text.strip().lower()
+            if "distraction" in text: return "distraction"
+            if "study" in text: return "study"
+            return "neutral"
+        except Exception as e:
+            print(f"Gemini API Error: {e}")
+            return "neutral"
+
+    def _score_title_regex(self, title: str) -> float:
         if not title:
             return 0.0
 

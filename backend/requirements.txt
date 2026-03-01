@@ -11,6 +11,7 @@ psycopg2-binary>=2.9.0  # PostgreSQL driver
 scikit-learn>=1.3.0
 pandas>=2.0.0
 numpy>=1.24.0
+google-genai>=0.1.0  # Gemini API for NLP classification
 
 # Auth
 pyjwt>=2.8.0
