@@ -78,11 +78,15 @@ STUDY_KEYWORDS = [
 
 DISTRACTION_KEYWORDS = [
     r"\b(viral|meme|celebrity|gossip|prank|fails?|bloopers?)s?\b",
-    r"\b(gaming|gameplay|twitch|lets?\s*play|walkthrough|speedrun)s?\b",
+    r"\b(gaming|gameplay|twitch|lets?\s*play|walkthrough|speedrun|minecraft|roblox|fortnite)s?\b",
     r"\b(funny|comedy|entertainment|trending|react(ion)?s?)s?\b",
     r"\b(shopping|sale|discount|deal|coupon|unboxing)s?\b",
     r"\b(drama|reality\s*TV|vlog|mukbang|ASMR|compilation)s?\b",
     r"\b(shorts|reel|story|tiktok|snap)s?\b",
+    r"\b(anime|manga|ep(isode)?(\s*\d+)?|season\s*\d+|sub(bed)?|dub(bed)?)s?\b", # Anime/Shows
+    r"\b(jujutsu\s*kaisen|naruto|one\s*piece|bleach|attack\s*on\s*titan)s?\b", # Specific shows
+    r"\b(cat|dog|kitten|puppy|pets?|animals?)s?\b", # Animal videos
+    r"\b(movie|trailer|teaser|spoiler|review|podcast)(s)?\b", # General entertainment
 ]
 
 # Specifically block explicit adult content instantly
