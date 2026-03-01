@@ -6,18 +6,20 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from database.db import get_db
-from database.models import StudySession, BrowsingEvent
+from database.models import StudySession, BrowsingEvent, User
 from api.models.schemas import SessionCreate, SessionResponse, SessionEndRequest
+from api.auth import require_user
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
 
 @router.post("/start", response_model=SessionResponse)
-def start_session(session: SessionCreate, db: Session = Depends(get_db)):
+def start_session(session: SessionCreate, db: Session = Depends(get_db), user: User = Depends(require_user)):
     """Start a new study session."""
-    # End any currently active sessions
+    # End any currently active sessions for this user
     active = (
         db.query(StudySession)
+        .filter(StudySession.user_id == user.id)
         .filter(StudySession.is_active == True)
         .all()
     )
@@ -26,6 +28,7 @@ def start_session(session: SessionCreate, db: Session = Depends(get_db)):
         s.ended_at = datetime.utcnow()
 
     new_session = StudySession(
+        user_id=user.id,
         study_topic=session.study_topic,
         planned_duration_minutes=session.planned_duration_minutes,
     )
@@ -36,9 +39,14 @@ def start_session(session: SessionCreate, db: Session = Depends(get_db)):
 
 
 @router.post("/end", response_model=SessionResponse)
-def end_session(request: SessionEndRequest, db: Session = Depends(get_db)):
+def end_session(request: SessionEndRequest, db: Session = Depends(get_db), user: User = Depends(require_user)):
     """End an active study session and compute summary stats."""
-    session = db.query(StudySession).get(request.session_id)
+    session = (
+        db.query(StudySession)
+        .filter(StudySession.id == request.session_id)
+        .filter(StudySession.user_id == user.id)
+        .first()
+    )
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
@@ -64,10 +72,11 @@ def end_session(request: SessionEndRequest, db: Session = Depends(get_db)):
 
 
 @router.get("/active", response_model=SessionResponse | None)
-def get_active_session(db: Session = Depends(get_db)):
+def get_active_session(db: Session = Depends(get_db), user: User = Depends(require_user)):
     """Get the currently active study session, if any."""
     session = (
         db.query(StudySession)
+        .filter(StudySession.user_id == user.id)
         .filter(StudySession.is_active == True)
         .first()
     )
@@ -78,10 +87,12 @@ def get_active_session(db: Session = Depends(get_db)):
 def list_sessions(
     limit: int = 20,
     db: Session = Depends(get_db),
+    user: User = Depends(require_user),
 ):
     """List recent study sessions."""
     return (
         db.query(StudySession)
+        .filter(StudySession.user_id == user.id)
         .order_by(StudySession.started_at.desc())
         .limit(limit)
         .all()
