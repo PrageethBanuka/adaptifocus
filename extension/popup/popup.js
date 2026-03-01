@@ -20,7 +20,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // Buttons
-  document.getElementById("google-signin-btn").addEventListener("click", googleSignIn);
+  // document.getElementById("google-signin-btn").addEventListener("click", googleSignIn);
   document.getElementById("dev-login-btn").addEventListener("click", devLogin);
   document.getElementById("consent-btn").addEventListener("click", handleConsent);
   document.getElementById("start-session").addEventListener("click", startSession);
