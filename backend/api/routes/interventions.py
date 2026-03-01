@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session
 from database.db import get_db
 from database.models import BrowsingEvent, Intervention, StudySession
 from api.models.schemas import InterventionRequest, InterventionResponse
+from api.auth import require_user
+from database.models import User
 from agents.coordinator import CoordinatorAgent
 
 router = APIRouter(prefix="/interventions", tags=["interventions"])
@@ -19,6 +21,7 @@ _coordinator = CoordinatorAgent()
 def check_intervention(
     request: InterventionRequest,
     db: Session = Depends(get_db),
+    user: User = Depends(require_user),
 ):
     """Check whether an intervention should be triggered for current browsing.
 
@@ -26,9 +29,10 @@ def check_intervention(
     """
     today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
 
-    # Fetch today's events for pattern analysis
+    # Fetch today's events for pattern analysis for the CURRENT USER
     historical = (
         db.query(BrowsingEvent)
+        .filter(BrowsingEvent.user_id == user.id)
         .filter(BrowsingEvent.timestamp >= today_start)
         .order_by(BrowsingEvent.timestamp.asc())
         .all()
@@ -55,9 +59,10 @@ def check_intervention(
         e.duration_seconds for e in historical if e.is_distraction
     )
 
-    # Interventions today
+    # Interventions today for the CURRENT USER
     interventions_today = (
         db.query(Intervention)
+        .filter(Intervention.user_id == user.id)
         .filter(Intervention.timestamp >= today_start)
         .count()
     )
@@ -91,6 +96,7 @@ def check_intervention(
     # Record intervention if triggered
     if decision["should_intervene"]:
         intervention = Intervention(
+            user_id=user.id,
             level=decision["level"],
             trigger_url=request.current_url,
             trigger_domain=request.current_domain,
@@ -114,9 +120,14 @@ def record_response(
     intervention_id: int,
     response: str,  # "dismissed", "complied", "overrode"
     db: Session = Depends(get_db),
+    user: User = Depends(require_user),
 ):
     """Record the user's response to an intervention."""
-    intervention = db.query(Intervention).get(intervention_id)
+    intervention = (
+        db.query(Intervention)
+        .filter(Intervention.id == intervention_id, Intervention.user_id == user.id)
+        .first()
+    )
     if not intervention:
         return {"error": "Intervention not found"}
 
