@@ -97,7 +97,12 @@
     </div>
 
     <div class="card stats-card">
-      <h3>📊 Today's Focus</h3>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h3 style="margin: 0;">📊 Today's Focus</h3>
+        <span id="server-loading" style="display:none; font-size: 11px; color: #EA4335;">
+          ⏳ Waking up server... (up to 50s)
+        </span>
+      </div>
       <div class="stats-grid">
         <div class="stat">
           <span class="stat-value" id="focus-score">—</span>

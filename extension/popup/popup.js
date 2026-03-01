@@ -218,10 +218,19 @@ async function handleDeleteData(e) {
 // ── Stats ───────────────────────────────────────────────────────────────
 
 async function loadStats() {
+  const loader = document.getElementById("server-loading");
+  const timeoutId = setTimeout(() => {
+    if (loader) loader.style.display = "inline";
+  }, 1000); // Show loading if backend takes > 1s (Render cold start)
+
   try {
     const res = await fetch(`${API_BASE}/analytics/focus-summary?days=1`, {
       headers: { Authorization: `Bearer ${token}` },
     });
+    
+    clearTimeout(timeoutId);
+    if (loader) loader.style.display = "none";
+
     if (!res.ok) return;
     const data = await res.json();
     document.getElementById("focus-score").textContent = `${data.focus_percentage || 0}%`;
@@ -229,7 +238,10 @@ async function loadStats() {
     document.getElementById("focus-time").textContent = mins > 60 ? `${Math.floor(mins/60)}h` : `${mins}m`;
     document.getElementById("distractions").textContent = data.distraction_events || "0";
     document.getElementById("interventions").textContent = data.interventions_today || "0";
-  } catch (e) { /* stats unavailable */ }
+  } catch (e) { 
+    clearTimeout(timeoutId);
+    if (loader) loader.style.display = "none";
+  }
 }
 
 async function loadCurrentTab() {

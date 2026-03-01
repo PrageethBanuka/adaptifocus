@@ -23,12 +23,15 @@ let authToken = null;
 
 // ── Restore state from storage on startup ───────────────────────────────────
 
-chrome.storage.local.get(["auth_token", "active_session_id"], (result) => {
+chrome.storage.local.get(["auth_token", "active_session_id", "pending_events"], (result) => {
   authToken = result.auth_token || null;
   if (result.active_session_id) {
     currentTab.sessionId = result.active_session_id;
   }
-  console.log("[AdaptiFocus] Restored state — token:", !!authToken, "session:", currentTab.sessionId);
+  if (result.pending_events && Array.isArray(result.pending_events)) {
+    pendingEvents = result.pending_events;
+  }
+  console.log("[AdaptiFocus] Restored state — token:", !!authToken, "session:", currentTab.sessionId, "events:", pendingEvents.length);
 });
 
 // ── Listen for auth updates from popup ──────────────────────────────────────
@@ -93,9 +96,21 @@ async function classifyCurrentPage() {
       const result = await res.json();
       currentTab.classification = result;
       chrome.storage.local.set({ current_classification: result });
+      
+      // Update extension icon badge
+      if (result.classification === "study") {
+        chrome.action.setBadgeText({ text: "FOCUS" });
+        chrome.action.setBadgeBackgroundColor({ color: "#34A853" });
+      } else if (result.classification === "distraction") {
+        chrome.action.setBadgeText({ text: "⚠️" });
+        chrome.action.setBadgeBackgroundColor({ color: "#EA4335" });
+      } else {
+        chrome.action.setBadgeText({ text: "" });
+      }
     }
   } catch (e) {
     console.warn("[AdaptiFocus] Classification failed:", e);
+    chrome.action.setBadgeText({ text: "" });
   }
 }
 
@@ -113,6 +128,7 @@ function switchTab(newUrl, newTitle) {
       session_id: currentTab.sessionId,
       timestamp: new Date(currentTab.startTime).toISOString(),
     });
+    chrome.storage.local.set({ pending_events: pendingEvents });
   }
 
   // Update current tab
@@ -124,6 +140,9 @@ function switchTab(newUrl, newTitle) {
     sessionId: currentTab.sessionId,
     classification: null,
   };
+
+  chrome.action.setBadgeText({ text: "..." });
+  chrome.action.setBadgeBackgroundColor({ color: "#9AA0A6" });
 
   // Classify the new page
   classifyCurrentPage();
@@ -165,6 +184,7 @@ async function flushEvents() {
 
   const batch = [...pendingEvents];
   pendingEvents = [];
+  chrome.storage.local.set({ pending_events: pendingEvents });
 
   for (const event of batch) {
     try {
@@ -178,7 +198,11 @@ async function flushEvents() {
       });
     } catch (e) {
       console.warn("[AdaptiFocus] Failed to send event:", e);
+      // Re-add to queue and save
+      const stored = await chrome.storage.local.get(["pending_events"]);
+      pendingEvents = stored.pending_events || [];
       pendingEvents.push(event);
+      chrome.storage.local.set({ pending_events: pendingEvents });
     }
   }
 }
