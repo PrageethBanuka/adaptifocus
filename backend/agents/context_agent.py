@@ -66,7 +66,8 @@ STUDY_KEYWORDS = [
     r"\b(python|java|javascript|typescript|c\+\+|rust|golang|react|node)s?\b",
     r"\b(ieee|acm|arxiv|conference|journal|proceedings)s?\b",
     r"\b(exam|quiz|test|study|review|notes|textbook)s?\b",
-    r"\b(math|calculus|algebra|statistics|probability|physics|chemistry|biology)s?\b",
+    r"\b(math|calculus|algebra|statistics|probability|physics|chemistry|biology|discrete|geometry|trigonometry)s?\b",
+    r"\b(theorem|proof|theory|lemma|corollary|axiom)s?\b",
     r"\b(MIT|Stanford|Harvard|Oxford|Cambridge|Berkeley)\b",
     r"\b(CS\s?\d|6\.\d{3}|CS\d{2,3}|COMP\s?\d|EE\s?\d|MATH\s?\d)\b",  # Course numbers
     r"\b(introduction\s+to|fundamentals\s+of|principles\s+of|learn)\b",
