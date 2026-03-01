@@ -26,7 +26,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("start-session").addEventListener("click", startSession);
   document.getElementById("stop-session").addEventListener("click", stopSession);
   document.getElementById("logout-btn").addEventListener("click", handleLogout);
-  document.getElementById("delete-data").addEventListener("click", handleDeleteData);
+  // document.getElementById("delete-data").addEventListener("click", handleDeleteData);
   document.getElementById("open-dashboard").addEventListener("click", (e) => {
     e.preventDefault();
     if (token) {
