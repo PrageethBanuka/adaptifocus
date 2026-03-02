@@ -116,7 +116,10 @@ async function classifyCurrentPage() {
 
 function switchTab(newUrl, newTitle) {
   const now = Date.now();
-  const durationSeconds = Math.round((now - currentTab.startTime) / 1000);
+  let durationSeconds = 0;
+  if (currentTab.startTime) {
+    durationSeconds = Math.round((now - currentTab.startTime) / 1000);
+  }
 
   // Record the previous tab as an event
   if (currentTab.url && durationSeconds > 0) {
@@ -126,7 +129,7 @@ function switchTab(newUrl, newTitle) {
       title: currentTab.title,
       duration_seconds: durationSeconds,
       session_id: currentTab.sessionId,
-      timestamp: new Date(currentTab.startTime).toISOString(),
+      timestamp: currentTab.startTime ? new Date(currentTab.startTime).toISOString() : new Date().toISOString(),
     });
     chrome.storage.local.set({ pending_events: pendingEvents });
   }
@@ -188,7 +191,7 @@ async function flushEvents() {
 
   for (const event of batch) {
     try {
-      await fetch(`${API_BASE}/events/`, {
+      const res = await fetch(`${API_BASE}/events/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -196,13 +199,14 @@ async function flushEvents() {
         },
         body: JSON.stringify(event),
       });
+      
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
     } catch (e) {
-      console.warn("[AdaptiFocus] Failed to send event:", e);
-      // Re-add to queue and save
-      const stored = await chrome.storage.local.get(["pending_events"]);
-      pendingEvents = stored.pending_events || [];
-      pendingEvents.push(event);
-      chrome.storage.local.set({ pending_events: pendingEvents });
+      console.warn("[AdaptiFocus] Failed to send event, discarding to avoid corrupted loop:", e);
+      // We purposefully do not re-add to queue here. If the server is rejecting it (e.g. 422 Unprocessable)
+      // due to a bad schema or invalid timestamp, re-adding it will permanently break the extension's sync queue.
     }
   }
 }
