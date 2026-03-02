@@ -1,6 +1,6 @@
 """API routes for browsing event ingestion."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends
@@ -45,9 +45,15 @@ def create_event(
         is_distraction = True
         distraction_score = max(distraction_score, 0.7)
 
+    # Strip timezone to avoid PostgreSQL Timezone insertion exceptions
+    ts = event.timestamp or datetime.utcnow()
+    if ts.tzinfo is not None:
+        # Convert to UTC first, then strip tzinfo
+        ts = ts.astimezone(timezone.utc).replace(tzinfo=None)
+
     db_event = BrowsingEvent(
         user_id=user.id,
-        timestamp=event.timestamp or datetime.utcnow(),
+        timestamp=ts,
         url=event.url,
         domain=domain,
         title=event.title,
