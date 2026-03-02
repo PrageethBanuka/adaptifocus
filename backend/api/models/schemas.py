@@ -1,8 +1,15 @@
 """Pydantic schemas for API request/response models."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
+
+def ensure_utc(dt: Optional[datetime]) -> Optional[str]:
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.isoformat()
 
 
 # ── Events ───────────────────────────────────────────────────────────────────
@@ -33,6 +40,10 @@ class EventResponse(BaseModel):
     distraction_score: float
     category: Optional[str]
     session_id: Optional[int]
+
+    @field_serializer("timestamp")
+    def serialize_dt(self, dt: datetime, _info):
+        return ensure_utc(dt)
 
     model_config = {"from_attributes": True}
 
@@ -82,6 +93,10 @@ class SessionResponse(BaseModel):
     actual_distraction_seconds: int
     is_active: bool
 
+    @field_serializer("started_at", "ended_at")
+    def serialize_dt(self, dt: Optional[datetime], _info):
+        return ensure_utc(dt)
+
     model_config = {"from_attributes": True}
 
 
@@ -116,5 +131,9 @@ class PatternResponse(BaseModel):
     description: Optional[str]
     confidence: float
     discovered_at: datetime
+
+    @field_serializer("discovered_at")
+    def serialize_dt(self, dt: datetime, _info):
+        return ensure_utc(dt)
 
     model_config = {"from_attributes": True}
