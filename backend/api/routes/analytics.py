@@ -2,6 +2,7 @@
 
 from datetime import datetime, timedelta
 from collections import defaultdict
+import json
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -11,6 +12,7 @@ from database.db import get_db
 from database.models import BrowsingEvent, Intervention, StudySession, UserPattern, User
 from api.models.schemas import FocusSummary, PatternResponse
 from api.auth import require_user
+from agents.pattern_agent import PatternAgent
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -130,7 +132,51 @@ def get_patterns(
     db: Session = Depends(get_db),
     user: User = Depends(require_user),
 ):
-    """Get discovered user patterns."""
+    """Get discovered user patterns.
+    
+    Dynamically analyzes the user's last 14 days of events,
+    persists the findings, and returns the models.
+    """
+    two_weeks_ago = datetime.utcnow() - timedelta(days=14)
+    events = (
+        db.query(BrowsingEvent)
+        .filter(BrowsingEvent.user_id == user.id)
+        .filter(BrowsingEvent.timestamp >= two_weeks_ago)
+        .all()
+    )
+
+    event_dicts = [
+        {
+            "url": e.url,
+            "domain": e.domain,
+            "title": e.title,
+            "duration_seconds": e.duration_seconds,
+            "timestamp": e.timestamp.isoformat() if e.timestamp else None,
+            "is_distraction": e.is_distraction,
+            "category": e.category,
+        }
+        for e in events
+    ]
+
+    agent = PatternAgent()
+    result = agent.analyze({"events": event_dicts})
+
+    # Clear old patterns and save new ones
+    db.query(UserPattern).filter(UserPattern.user_id == user.id).delete()
+    
+    patterns = result.get("patterns", [])
+    for p in patterns:
+        db.add(UserPattern(
+            user_id=user.id,
+            pattern_type=p["type"],
+            description=p["description"],
+            confidence=p["confidence"],
+            data_json=json.dumps(p["data"])
+        ))
+    
+    if patterns:
+        db.commit()
+
     return (
         db.query(UserPattern)
         .filter(UserPattern.user_id == user.id)
