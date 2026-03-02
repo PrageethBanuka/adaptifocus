@@ -302,7 +302,7 @@ class ContextAgent(BaseAgent):
             return "neutral"
             
         try:
-            client = genai.Client() # Picks up GEMINI_API_KEY from env
+            client = genai.Client(http_options={'timeout': 3000}) # 3 second timeout
             prompt = (
                 f"You are categorizing browsing history for a university student's productivity app. "
                 f"Is the following video/page title strictly for studying/academics, strictly for entertainment/distraction "
@@ -311,7 +311,7 @@ class ContextAgent(BaseAgent):
                 f"Respond with EXACTLY ONE WORD from this list: [study, distraction, neutral]"
             )
             response = client.models.generate_content(
-                model='gemini-2.5-flash',
+                model='gemini-2.0-flash',
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     temperature=0.0,
