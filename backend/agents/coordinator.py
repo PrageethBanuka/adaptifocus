@@ -96,6 +96,8 @@ class CoordinatorAgent(BaseAgent):
                 "total_distraction_seconds_today", 0
             ),
             "interventions_today": data.get("interventions_today", 0),
+            "user_compliance_rate": data.get("user_compliance_rate", 0.5),
+            "recent_dismiss_streak": data.get("recent_dismiss_streak", 0),
         })
 
         return {

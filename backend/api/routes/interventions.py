@@ -80,6 +80,27 @@ async def check_intervention(
             session_active = True
             study_topic = session.study_topic
 
+    # Compute adaptive escalation metrics
+    all_interv_query = (
+        select(Intervention)
+        .filter(Intervention.user_id == user.id)
+        .filter(Intervention.user_response != None)
+        .order_by(Intervention.timestamp.desc())
+        .limit(20)
+    )
+    interv_res = await db.execute(all_interv_query)
+    recent_interventions = interv_res.scalars().all()
+
+    complied_count = sum(1 for i in recent_interventions if i.was_effective)
+    compliance_rate = complied_count / max(1, len(recent_interventions)) if recent_interventions else 0.5
+
+    dismiss_streak = 0
+    for i in recent_interventions:
+        if i.user_response in ("dismissed", "overrode"):
+            dismiss_streak += 1
+        else:
+            break
+
     # Run coordinator
     result = _coordinator.analyze({
         "current_url": request.current_url,
@@ -93,6 +114,8 @@ async def check_intervention(
         "historical_events": historical_dicts,
         "total_distraction_seconds_today": total_distraction_today,
         "interventions_today": interventions_today,
+        "user_compliance_rate": compliance_rate,
+        "recent_dismiss_streak": dismiss_streak,
     })
 
     decision = result["decision"]

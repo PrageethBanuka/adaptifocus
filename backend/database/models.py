@@ -42,6 +42,7 @@ class User(Base):
     interventions = relationship("Intervention", back_populates="user", lazy="dynamic")
     patterns = relationship("UserPattern", back_populates="user", lazy="dynamic")
     feedback = relationship("UserFeedback", back_populates="user", lazy="dynamic")
+    streak = relationship("FocusStreak", back_populates="user", uselist=False)
 
 
 class BrowsingEvent(Base):
@@ -137,3 +138,19 @@ class UserFeedback(Base):
     is_false_positive = Column(Boolean, default=True)
 
     user = relationship("User", back_populates="feedback")
+
+
+class FocusStreak(Base):
+    """Tracks consecutive focused study sessions for gamification."""
+
+    __tablename__ = "focus_streaks"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    current_streak = Column(Integer, default=0)
+    best_streak = Column(Integer, default=0)
+    total_focused_sessions = Column(Integer, default=0)
+    last_focused_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User", back_populates="streak")

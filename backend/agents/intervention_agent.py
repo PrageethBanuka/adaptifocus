@@ -82,6 +82,8 @@ class InterventionAgent(BaseAgent):
             "session_active": bool,
             "total_distraction_seconds_today": int,
             "interventions_today": int,       # How many already triggered
+            "user_compliance_rate": float,    # 0.0-1.0 historical compliance
+            "recent_dismiss_streak": int,     # Consecutive recent dismissals
         }
 
     Output:
@@ -151,6 +153,27 @@ class InterventionAgent(BaseAgent):
             adjusted_warn = int(adjusted_warn * 0.7)
             adjusted_soft = int(adjusted_soft * 0.7)
             adjusted_hard = int(adjusted_hard * 0.7)
+
+        # ── Adaptive escalation based on user behavior ───────────────────
+        # If user keeps dismissing interventions, tighten thresholds (act sooner)
+        # If user is generally compliant, relax thresholds (less annoying)
+        compliance_rate = data.get("user_compliance_rate", 0.5)
+        dismiss_streak = data.get("recent_dismiss_streak", 0)
+
+        if dismiss_streak >= 3:
+            # User has dismissed 3+ interventions in a row → escalate faster
+            behavior_multiplier = max(0.4, 1.0 - (dismiss_streak * 0.15))
+            adjusted_nudge = int(adjusted_nudge * behavior_multiplier)
+            adjusted_warn = int(adjusted_warn * behavior_multiplier)
+            adjusted_soft = int(adjusted_soft * behavior_multiplier)
+            adjusted_hard = int(adjusted_hard * behavior_multiplier)
+        elif compliance_rate > 0.7:
+            # User is generally compliant → relax thresholds
+            relax_factor = 1.0 + (compliance_rate - 0.7)
+            adjusted_nudge = int(adjusted_nudge * relax_factor)
+            adjusted_warn = int(adjusted_warn * relax_factor)
+            adjusted_soft = int(adjusted_soft * relax_factor)
+            adjusted_hard = int(adjusted_hard * relax_factor)
 
         # ── Determine intervention level ─────────────────────────────────
         duration_str = _format_duration(time_on_current)

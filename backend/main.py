@@ -3,8 +3,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+import asyncio
 from database.db import init_db
-from api.routes import events, interventions, sessions, analytics, auth, admin, ml
+from api.routes import events, interventions, sessions, analytics, auth, admin, ml, streaks, reports
 
 app = FastAPI(
     title="AdaptiFocus API",
@@ -32,12 +33,27 @@ app.include_router(interventions.router)
 app.include_router(sessions.router)
 app.include_router(analytics.router)
 app.include_router(admin.router)
+app.include_router(ml.router)
+app.include_router(streaks.router)
+app.include_router(reports.router)
+
+
+async def _retrain_loop():
+    """Background task: retrain ML model every 24 hours."""
+    from ml.retrain import retrain
+    while True:
+        await asyncio.sleep(86400)  # 24 hours
+        try:
+            await retrain()
+        except Exception as e:
+            print(f"[Scheduler] Retrain failed: {e}")
 
 
 @app.on_event("startup")
-def on_startup():
-    """Initialize database on app start."""
+async def on_startup():
+    """Initialize database and start background tasks."""
     init_db()
+    asyncio.create_task(_retrain_loop())
 
 
 @app.get("/")
