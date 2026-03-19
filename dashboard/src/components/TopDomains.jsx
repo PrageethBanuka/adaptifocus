@@ -1,6 +1,8 @@
 /**
- * TopDomains — Shows top distracting and productive domains with bar visualization.
+ * TopDomains — Domain ranking with clean bar visualization.
  */
+
+import { Globe, Smartphone, Monitor } from 'lucide-react'
 
 function formatDuration(seconds) {
   if (!seconds || seconds <= 0) return '0m'
@@ -12,7 +14,7 @@ function formatDuration(seconds) {
 
 function DomainList({ domains, type, maxSeconds }) {
   if (!domains || domains.length === 0) {
-    return <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>No data</p>
+    return <p style={{ color: 'var(--text-muted)', fontSize: '12px' }}>No data</p>
   }
 
   return (
@@ -42,29 +44,18 @@ export default function TopDomains({ summary }) {
   const distractingDomains = summary.top_distracting_domains || []
   const productiveDomains = summary.top_productive_domains || []
 
-  const maxDistraction = distractingDomains.length > 0
-    ? distractingDomains[0].seconds
-    : 1
-  const maxProductive = productiveDomains.length > 0
-    ? productiveDomains[0].seconds
-    : 1
+  const maxDistraction = distractingDomains.length > 0 ? distractingDomains[0].seconds : 1
+  const maxProductive = productiveDomains.length > 0 ? productiveDomains[0].seconds : 1
 
   return (
     <div className="card">
-      <div className="card-label" style={{ marginBottom: '16px' }}>
-        🌐 Top Domains
-      </div>
+      <div className="card-label"><Globe size={14} /> Top Domains</div>
 
-      {/* Distracting */}
-      <div style={{ marginBottom: '20px' }}>
-        <h3 style={{
-          fontSize: '13px',
-          fontWeight: 600,
-          color: '#ff6b6b',
-          marginBottom: '10px',
-        }}>
-          📱 Most Distracting
-        </h3>
+      <div style={{ marginBottom: '18px' }}>
+        <div className="section-subtitle" style={{ color: '#FF453A' }}>
+          <Smartphone size={13} />
+          Most Distracting
+        </div>
         <DomainList
           domains={distractingDomains}
           type="distraction"
@@ -72,16 +63,11 @@ export default function TopDomains({ summary }) {
         />
       </div>
 
-      {/* Productive */}
       <div>
-        <h3 style={{
-          fontSize: '13px',
-          fontWeight: 600,
-          color: '#4ecdc4',
-          marginBottom: '10px',
-        }}>
-          💻 Most Productive
-        </h3>
+        <div className="section-subtitle" style={{ color: '#30D158' }}>
+          <Monitor size={13} />
+          Most Productive
+        </div>
         <DomainList
           domains={productiveDomains}
           type="productive"

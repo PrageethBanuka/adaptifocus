@@ -33,14 +33,14 @@ export async function getInterventionHistory(days = 7) {
   return fetchJSON(`/analytics/intervention-history?days=${days}`);
 }
 
-export async function getRecentEvents(limit = 50) {
-  return fetchJSON(`/events/?limit=${limit}`);
+export async function getStreak() {
+  return fetchJSON("/streaks/current");
 }
 
-export async function getTodaySummary() {
-  return fetchJSON("/events/today/summary");
+export async function getDailyReport() {
+  return fetchJSON("/reports/daily");
 }
 
-export async function getSessionHistory(limit = 20) {
-  return fetchJSON(`/sessions/history?limit=${limit}`);
+export async function getWeeklyReport() {
+  return fetchJSON("/reports/weekly");
 }

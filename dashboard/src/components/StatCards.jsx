@@ -1,6 +1,8 @@
 /**
- * StatCards — Top-level KPI cards showing focus summary metrics.
+ * StatCards — KPI cards with Lucide icons and Apple-style accent lines.
  */
+
+import { Target, Clock, Smartphone, Shield } from 'lucide-react'
 
 function formatDuration(seconds) {
   if (!seconds || seconds <= 0) return '0m'
@@ -18,25 +20,28 @@ export default function StatCards({ summary }) {
       label: 'Focus Score',
       value: `${summary.focus_percentage || 0}%`,
       accent: 'focus',
-      icon: '🎯',
+      icon: Target,
+      sub: null,
     },
     {
       label: 'Focus Time',
       value: formatDuration(summary.focus_seconds),
       accent: 'focus',
-      icon: '⏱️',
+      icon: Clock,
+      sub: null,
     },
     {
       label: 'Distraction Time',
       value: formatDuration(summary.distraction_seconds),
       accent: 'distraction',
-      icon: '📱',
+      icon: Smartphone,
+      sub: null,
     },
     {
       label: 'Interventions',
       value: summary.interventions_today || 0,
-      accent: summary.interventions_today > 0 ? 'neutral' : 'success',
-      icon: '🛡️',
+      accent: summary.interventions_today > 0 ? 'warning' : 'focus',
+      icon: Shield,
       sub: summary.intervention_success_rate
         ? `${summary.intervention_success_rate}% effective`
         : null,
@@ -45,18 +50,19 @@ export default function StatCards({ summary }) {
 
   return (
     <div className="dashboard-grid">
-      {cards.map((card) => (
-        <div key={card.label} className={`card stat-card ${card.accent}`}>
-          <div className="card-label">
-            <span style={{ marginRight: '6px' }}>{card.icon}</span>
-            {card.label}
+      {cards.map((card) => {
+        const Icon = card.icon
+        return (
+          <div key={card.label} className={`card stat-card ${card.accent}`}>
+            <div className="card-label">
+              <Icon size={14} />
+              {card.label}
+            </div>
+            <div className={`card-value ${card.accent}`}>{card.value}</div>
+            {card.sub && <div className="card-sub">{card.sub}</div>}
           </div>
-          <div className={`card-value ${card.accent}`}>{card.value}</div>
-          {card.sub && (
-            <div className="card-change positive">{card.sub}</div>
-          )}
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }

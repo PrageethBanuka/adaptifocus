@@ -1,6 +1,8 @@
 /**
- * InterventionLog — Shows recent interventions with level badges and outcomes.
+ * InterventionLog — Clean intervention history with Lucide icons.
  */
+
+import { ShieldCheck, ShieldAlert } from 'lucide-react'
 
 function timeAgo(isoString) {
   const now = new Date()
@@ -19,24 +21,21 @@ function timeAgo(isoString) {
 function formatDuration(seconds) {
   if (!seconds || seconds <= 0) return '0s'
   if (seconds < 60) return `${seconds}s`
-  const m = Math.floor(seconds / 60)
-  return `${m}m`
+  return `${Math.floor(seconds / 60)}m`
 }
 
 export default function InterventionLog({ interventions }) {
   return (
     <div className="card">
-      <div className="card-label" style={{ marginBottom: '16px' }}>
-        🛡️ Intervention History
-      </div>
+      <div className="card-label"><ShieldCheck size={14} /> Interventions</div>
 
       {(!interventions || interventions.length === 0) ? (
-        <div className="empty-state" style={{ padding: '24px 0' }}>
-          <div className="empty-icon">🛡️</div>
+        <div className="empty-state">
+          <div className="empty-icon"><ShieldAlert size={18} /></div>
           <p>No interventions recorded yet</p>
         </div>
       ) : (
-        <div style={{ maxHeight: '380px', overflowY: 'auto' }}>
+        <div style={{ maxHeight: '360px', overflowY: 'auto' }}>
           {interventions.map((item) => (
             <div key={item.id} className="intervention-item">
               <span className={`intervention-badge ${item.level}`}>
