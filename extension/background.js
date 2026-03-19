@@ -40,6 +40,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "AUTH_UPDATE") {
     authToken = message.token;
     console.log("[AdaptiFocus] Auth token updated:", !!authToken);
+    if (authToken) connectWebSocket();
   }
 
   if (message.type === "SESSION_STARTED") {
@@ -332,6 +333,84 @@ async function checkIntervention() {
   }
 }
 
+// ── WebSocket Real-Time Connection ──────────────────────────────────────────
+
+const WS_URL = API_BASE.replace("https://", "wss://").replace("http://", "ws://") + "/ws";
+let ws = null;
+let wsReconnectTimer = null;
+let wsConnected = false;
+
+function connectWebSocket() {
+  if (!authToken) return;
+  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+
+  try {
+    ws = new WebSocket(`${WS_URL}?token=${authToken}`);
+
+    ws.onopen = () => {
+      wsConnected = true;
+      console.log("[AdaptiFocus] WebSocket connected");
+      // Start heartbeat
+      if (wsReconnectTimer) clearTimeout(wsReconnectTimer);
+    };
+
+    ws.onmessage = async (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+
+        if (msg.type === "intervention" && msg.data) {
+          // Server pushed an intervention — show it immediately
+          console.log("[AdaptiFocus] WS intervention push:", msg.data.level);
+          const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+          if (activeTab?.id) {
+            try {
+              await chrome.scripting.executeScript({ target: { tabId: activeTab.id }, files: ["content.js"] });
+              await chrome.scripting.insertCSS({ target: { tabId: activeTab.id }, files: ["intervention.css"] });
+            } catch (e) { /* already injected */ }
+            await new Promise(r => setTimeout(r, 150));
+            chrome.tabs.sendMessage(activeTab.id, {
+              type: "INTERVENTION",
+              level: msg.data.level,
+              message: msg.data.message,
+              urgency: msg.data.urgency,
+            });
+          }
+        }
+
+        if (msg.type === "pong") {
+          // Heartbeat response — connection is alive
+        }
+      } catch (e) {
+        console.warn("[AdaptiFocus] WS message parse error:", e);
+      }
+    };
+
+    ws.onclose = () => {
+      wsConnected = false;
+      console.log("[AdaptiFocus] WebSocket closed, reconnecting in 5s...");
+      wsReconnectTimer = setTimeout(connectWebSocket, 5000);
+    };
+
+    ws.onerror = () => {
+      wsConnected = false;
+      ws.close();
+    };
+  } catch (e) {
+    console.warn("[AdaptiFocus] WebSocket connection failed:", e);
+    wsReconnectTimer = setTimeout(connectWebSocket, 10000);
+  }
+}
+
+// Send heartbeat every 25s to keep connection alive
+setInterval(() => {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: "ping" }));
+  }
+}, 25000);
+
+// Connect on startup if we have a token
+if (authToken) connectWebSocket();
+
 // ── Alarms for periodic tasks ───────────────────────────────────────────────
 // Chrome minimum alarm interval is 0.5 minutes (30 seconds)
 
@@ -347,8 +426,12 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === "flushEvents") {
     flushEvents();
   } else if (alarm.name === "checkIntervention") {
-    checkIntervention();
+    // Only poll via HTTP if WebSocket is not connected (fallback)
+    if (!wsConnected) {
+      checkIntervention();
+    }
   }
 });
 
 console.log("[AdaptiFocus] Background service worker initialized");
+

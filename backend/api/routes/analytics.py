@@ -1,4 +1,4 @@
-"""API routes for analytics dashboard data."""
+"""API routes for analytics dashboard data (with caching)."""
 
 from datetime import datetime, timedelta
 from collections import defaultdict
@@ -14,6 +14,7 @@ from database.models import BrowsingEvent, Intervention, StudySession, UserPatte
 from api.models.schemas import FocusSummary, PatternResponse
 from api.auth import require_user
 from agents.pattern_agent import PatternAgent
+from cache import cache
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -25,6 +26,11 @@ async def get_focus_summary(
     user: User = Depends(require_user),
 ):
     """Summary of focus vs distraction for the last N days."""
+    cache_key = f"analytics:user:{user.id}:summary:{days}"
+    cached = await cache.get(cache_key)
+    if cached:
+        return FocusSummary(**cached)
+
     since = datetime.utcnow() - timedelta(days=days)
 
     query = (
@@ -77,7 +83,7 @@ async def get_focus_summary(
 
     distraction_events = sum(1 for e in events if e.is_distraction)
 
-    return FocusSummary(
+    result = FocusSummary(
         total_events=len(events),
         distraction_events=distraction_events,
         total_seconds=total_seconds,
@@ -91,6 +97,8 @@ async def get_focus_summary(
         interventions_today=len(interventions),
         intervention_success_rate=round(success_rate, 1),
     )
+    await cache.set(cache_key, result.model_dump(), ttl=60)
+    return result
 
 
 @router.get("/hourly-breakdown")
@@ -101,6 +109,11 @@ async def get_hourly_breakdown(
     user: User = Depends(require_user),
 ):
     """Hourly focus/distraction breakdown for pattern visualization."""
+    cache_key = f"analytics:user:{user.id}:hourly:{days}:{tz_offset}"
+    cached = await cache.get(cache_key)
+    if cached:
+        return cached
+
     since = datetime.utcnow() - timedelta(days=days)
 
     query = (
@@ -128,7 +141,9 @@ async def get_hourly_breakdown(
             else:
                 hourly[h]["focus"] += e.duration_seconds
 
-    return list(hourly.values())
+    data = list(hourly.values())
+    await cache.set(cache_key, data, ttl=60)
+    return data
 
 
 @router.get("/patterns", response_model=list[PatternResponse])
@@ -141,6 +156,11 @@ async def get_patterns(
     Dynamically analyzes the user's last 14 days of events,
     persists the findings, and returns the models.
     """
+    cache_key = f"analytics:user:{user.id}:patterns"
+    cached = await cache.get(cache_key)
+    if cached:
+        return cached
+
     two_weeks_ago = datetime.utcnow() - timedelta(days=14)
     query = (
         select(BrowsingEvent)
@@ -189,7 +209,14 @@ async def get_patterns(
         .limit(20)
     )
     res = await db.execute(query)
-    return res.scalars().all()
+    patterns = res.scalars().all()
+    await cache.set(cache_key, [
+        {"id": p.id, "user_id": p.user_id, "pattern_type": p.pattern_type,
+         "description": p.description, "confidence": p.confidence,
+         "data_json": p.data_json, "discovered_at": str(p.discovered_at)}
+        for p in patterns
+    ], ttl=300)
+    return patterns
 
 
 @router.get("/intervention-history")

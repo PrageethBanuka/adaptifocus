@@ -11,6 +11,7 @@ from database.db import get_db
 from database.models import BrowsingEvent, Intervention, StudySession
 from api.models.schemas import InterventionRequest, InterventionResponse
 from api.auth import require_user
+from api.routes.ws import manager as ws_manager
 from database.models import User
 from agents.coordinator import CoordinatorAgent
 
@@ -132,6 +133,17 @@ async def check_intervention(
         )
         db.add(intervention)
         await db.commit()
+
+        # Push via WebSocket if extension is connected
+        await ws_manager.send(user.id, {
+            "type": "intervention",
+            "data": {
+                "level": decision["level"],
+                "message": decision["message"],
+                "urgency": decision["urgency"],
+                "cooldown_seconds": decision["cooldown_seconds"],
+            },
+        })
 
     return InterventionResponse(
         should_intervene=decision["should_intervene"],

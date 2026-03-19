@@ -23,6 +23,9 @@ JWT_SECRET = os.getenv("JWT_SECRET", "adaptifocus-dev-secret-change-in-prod")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_HOURS = 72  # Token valid for 3 days
 
+# ── Redis Cache ──────────────────────────────────────────────────────────────
+REDIS_URL = os.getenv("REDIS_URL")  # None = in-memory fallback
+
 # ── Agent Thresholds ─────────────────────────────────────────────────────────
 NUDGE_THRESHOLD_SECONDS = 30
 WARN_THRESHOLD_SECONDS = 120
