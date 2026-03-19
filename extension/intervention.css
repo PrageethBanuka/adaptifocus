@@ -1,4 +1,6 @@
-/* ── AdaptiFocus Intervention Overlay Styles ─────────────────────────────── */
+/* ── AdaptiFocus Intervention Overlay — Apple-Inspired ────────────────── */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 .adaptifocus-overlay {
   position: fixed;
@@ -11,17 +13,19 @@
   align-items: center;
   justify-content: center;
   opacity: 0;
-  transition: opacity 0.3s ease;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  transition: opacity 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
 .adaptifocus-overlay.adaptifocus-visible {
   opacity: 1;
 }
 
-/* Level-specific backgrounds */
+/* ── Level-specific backdrop ─────────────────────────────────────────── */
+
 .adaptifocus-nudge {
-  background: rgba(0, 0, 0, 0.15);
+  background: transparent;
   pointer-events: none;
 }
 .adaptifocus-nudge .adaptifocus-card {
@@ -29,95 +33,195 @@
 }
 
 .adaptifocus-warn {
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 .adaptifocus-soft_block {
-  background: rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .adaptifocus-hard_block {
-  background: rgba(0, 0, 0, 0.85);
-  backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
-/* Card */
+/* ── Card ─────────────────────────────────────────────────────────────── */
+
 .adaptifocus-card {
-  background: #1a1a2e;
-  border-radius: 16px;
-  padding: 32px 40px;
-  max-width: 480px;
+  background: rgba(28, 28, 30, 0.95);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border-radius: 20px;
+  padding: 32px 36px;
+  max-width: 440px;
   width: 90%;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.06);
   text-align: center;
-  color: #e0e0e0;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #F5F5F7;
+  transform: scale(0.96) translateY(8px);
+  transition: transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
+.adaptifocus-visible .adaptifocus-card {
+  transform: scale(1) translateY(0);
+}
+
+/* Nudge: bottom-right toast style */
 .adaptifocus-nudge .adaptifocus-card {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
+  bottom: 20px;
+  right: 20px;
   top: auto;
   left: auto;
-  max-width: 380px;
-  padding: 20px 24px;
-  border-radius: 12px;
+  max-width: 360px;
+  padding: 18px 22px;
+  border-radius: 14px;
   text-align: left;
+  transform: translateY(16px);
 }
 
-/* Header */
+.adaptifocus-nudge.adaptifocus-visible .adaptifocus-card {
+  transform: translateY(0);
+}
+
+/* ── Header ───────────────────────────────────────────────────────────── */
+
 .adaptifocus-header {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
 }
 
 .adaptifocus-nudge .adaptifocus-header {
   justify-content: flex-start;
+  margin-bottom: 12px;
 }
 
 .adaptifocus-logo {
-  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(10, 132, 255, 0.15);
+  flex-shrink: 0;
+}
+
+.adaptifocus-logo svg {
+  color: #0A84FF;
+  width: 18px;
+  height: 18px;
+}
+
+.adaptifocus-nudge .adaptifocus-logo {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+}
+
+.adaptifocus-nudge .adaptifocus-logo svg {
+  width: 15px;
+  height: 15px;
 }
 
 .adaptifocus-title {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: #F5F5F7;
+  letter-spacing: -0.2px;
 }
 
-/* Message */
+.adaptifocus-nudge .adaptifocus-title {
+  font-size: 14px;
+}
+
+/* ── Level indicator ──────────────────────────────────────────────────── */
+
+.adaptifocus-level-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 16px;
+}
+
+.adaptifocus-level-badge svg {
+  width: 12px;
+  height: 12px;
+}
+
+.adaptifocus-nudge .adaptifocus-level-badge {
+  background: rgba(255, 159, 10, 0.12);
+  color: #FF9F0A;
+}
+
+.adaptifocus-warn .adaptifocus-level-badge {
+  background: rgba(255, 159, 10, 0.15);
+  color: #FF9F0A;
+}
+
+.adaptifocus-soft_block .adaptifocus-level-badge {
+  background: rgba(255, 69, 58, 0.12);
+  color: #FF453A;
+}
+
+.adaptifocus-hard_block .adaptifocus-level-badge {
+  background: rgba(255, 69, 58, 0.2);
+  color: #FF453A;
+}
+
+/* ── Message ──────────────────────────────────────────────────────────── */
+
 .adaptifocus-message {
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1.6;
-  margin: 0 0 24px;
-  color: #c0c0c0;
+  margin: 0 0 22px;
+  color: #98989D;
+  font-weight: 400;
 }
 
 .adaptifocus-nudge .adaptifocus-message {
-  margin-bottom: 16px;
-  font-size: 14px;
+  margin-bottom: 14px;
+  font-size: 13px;
 }
 
-/* Timer */
+/* ── Timer ─────────────────────────────────────────────────────────────── */
+
 .adaptifocus-timer {
-  font-size: 14px;
-  color: #ff6b6b;
-  margin: 0 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #FF453A;
+  margin: 0 0 16px;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
-/* Actions */
+.adaptifocus-timer svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ── Actions ──────────────────────────────────────────────────────────── */
+
 .adaptifocus-actions {
   display: flex;
-  gap: 12px;
+  gap: 8px;
   justify-content: center;
   flex-wrap: wrap;
 }
@@ -126,40 +230,44 @@
   justify-content: flex-end;
 }
 
-/* Buttons */
+/* ── Buttons ──────────────────────────────────────────────────────────── */
+
 .adaptifocus-btn {
-  padding: 10px 20px;
-  border-radius: 8px;
+  padding: 9px 18px;
+  border-radius: 10px;
   border: none;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  font-family: inherit;
+  transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  letter-spacing: -0.1px;
 }
 
 .adaptifocus-btn-primary {
-  background: linear-gradient(135deg, #667eea, #764ba2);
+  background: #0A84FF;
   color: white;
 }
 .adaptifocus-btn-primary:hover {
+  background: #0070E0;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
 .adaptifocus-btn-secondary {
-  background: rgba(255, 255, 255, 0.1);
-  color: #c0c0c0;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(44, 44, 46, 0.8);
+  color: #98989D;
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 .adaptifocus-btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(58, 58, 60, 0.8);
+  color: #F5F5F7;
 }
 
 .adaptifocus-btn-danger {
-  background: rgba(255, 107, 107, 0.2);
-  color: #ff6b6b;
-  border: 1px solid rgba(255, 107, 107, 0.3);
+  background: rgba(255, 69, 58, 0.12);
+  color: #FF453A;
+  border: 1px solid rgba(255, 69, 58, 0.2);
 }
 .adaptifocus-btn-danger:hover {
-  background: rgba(255, 107, 107, 0.3);
+  background: rgba(255, 69, 58, 0.2);
 }
