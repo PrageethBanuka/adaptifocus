@@ -12,6 +12,7 @@ from database.db import get_db
 from database.models import BrowsingEvent, User
 from api.models.schemas import EventCreate, EventResponse
 from api.auth import require_user
+from cache import cache
 from agents.context_agent import ContextAgent, _extract_domain, DISTRACTION_DOMAINS, MIXED_DOMAINS
 
 router = APIRouter(prefix="/events", tags=["events"])
@@ -67,6 +68,10 @@ async def create_event(
     db.add(db_event)
     await db.commit()
     await db.refresh(db_event)
+
+    # Invalidate cached analytics for this user
+    await cache.invalidate_pattern(f"analytics:user:{user.id}:*")
+
     return db_event
 
 
