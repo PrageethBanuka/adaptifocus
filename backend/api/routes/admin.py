@@ -87,14 +87,6 @@ async def admin_users(key: str, db: AsyncSession = Depends(get_db)):
 
         res = await db.execute(select(func.sum(BrowsingEvent.duration_seconds)).filter(BrowsingEvent.user_id == user.id, BrowsingEvent.is_distraction == True))
         distraction_sec = res.scalar() or 0
-        # (
-            db.query(func.sum(BrowsingEvent.duration_seconds))
-            .filter(
-                BrowsingEvent.user_id == user.id,
-                BrowsingEvent.is_distraction == True,
-            )
-            .scalar() or 0
-        )
 
         res = await db.execute(select(func.count(StudySession.id)).filter(StudySession.user_id == user.id))
         session_count = res.scalar() or 0
@@ -155,16 +147,8 @@ async def experiment_comparison(key: str, db: AsyncSession = Depends(get_db)):
         res = await db.execute(select(func.sum(BrowsingEvent.duration_seconds)).filter(BrowsingEvent.user_id.in_(user_ids)))
         total_sec = res.scalar() or 0
 
-        res = await db.execute(select(func.sum(BrowsingEvent.duration_seconds)).filter(BrowsingEvent.user_id == user.id, BrowsingEvent.is_distraction == True))
+        res = await db.execute(select(func.sum(BrowsingEvent.duration_seconds)).filter(BrowsingEvent.user_id.in_(user_ids), BrowsingEvent.is_distraction == True))
         distraction_sec = res.scalar() or 0
-        # (
-            db.query(func.sum(BrowsingEvent.duration_seconds))
-            .filter(
-                BrowsingEvent.user_id.in_(user_ids),
-                BrowsingEvent.is_distraction == True,
-            )
-            .scalar() or 0
-        )
 
         res = await db.execute(select(func.count(StudySession.id)).filter(StudySession.user_id.in_(user_ids)))
         session_count = res.scalar() or 0
@@ -192,8 +176,8 @@ async def top_domains(key: str, limit: int = 20, db: AsyncSession = Depends(get_
     """Top domains across all users by time spent."""
     verify_admin(key)
 
-    domains = (
-        db.query(
+    query = (
+        select(
             BrowsingEvent.domain,
             BrowsingEvent.is_distraction,
             func.sum(BrowsingEvent.duration_seconds).label("total_seconds"),
@@ -204,8 +188,9 @@ async def top_domains(key: str, limit: int = 20, db: AsyncSession = Depends(get_
         .group_by(BrowsingEvent.domain, BrowsingEvent.is_distraction)
         .order_by(func.sum(BrowsingEvent.duration_seconds).desc())
         .limit(limit)
-        .all()
     )
+    res = await db.execute(query)
+    domains = res.all()
 
     return [
         {
