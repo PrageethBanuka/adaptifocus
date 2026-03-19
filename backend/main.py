@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 import asyncio
 from database.db import init_db
-from api.routes import events, interventions, sessions, analytics, auth, admin, ml
+from api.routes import events, interventions, sessions, analytics, auth, admin, ml, streaks
 
 app = FastAPI(
     title="AdaptiFocus API",
@@ -34,6 +34,7 @@ app.include_router(sessions.router)
 app.include_router(analytics.router)
 app.include_router(admin.router)
 app.include_router(ml.router)
+app.include_router(streaks.router)
 
 
 async def _retrain_loop():
