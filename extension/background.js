@@ -66,7 +66,35 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     });
     return true;
   }
+  if (message.type === "SUBMIT_FEEDBACK") {
+    submitFeedback(message.url, message.domain, "distraction", "study");
+  }
 });
+
+async function submitFeedback(url, domain, prediction, actualCategory) {
+  const tok = await getAuthToken();
+  if (!tok) return;
+
+  try {
+    fetch(`${API_BASE}/ml/feedback`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${tok}`,
+      },
+      body: JSON.stringify({
+        url: url,
+        domain: domain,
+        prediction: prediction,
+        actual_category: actualCategory,
+        is_false_positive: true
+      }),
+    });
+    console.log("[AdaptiFocus] ML Feedback submitted for", domain);
+  } catch (e) {
+    console.warn("[AdaptiFocus] Failed to submit feedback", e);
+  }
+}
 
 // ── Tab tracking ────────────────────────────────────────────────────────────
 

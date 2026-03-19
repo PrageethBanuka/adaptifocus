@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
+import onnxruntime as ort
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import cross_val_score
@@ -43,6 +44,14 @@ class PatternClassifier:
 
     def _load_or_init(self):
         """Load saved model or initialize a new one."""
+        self.sess = None
+        onnx_path = MODEL_DIR / "pattern_pipeline.onnx"
+        if onnx_path.exists():
+            try:
+                self.sess = ort.InferenceSession(str(onnx_path))
+            except Exception as e:
+                print(f"[PatternClassifier] Failed to load ONNX: {e}")
+
         model_path = MODEL_DIR / "pattern_model.pkl"
         scaler_path = MODEL_DIR / "pattern_scaler.pkl"
 
@@ -66,18 +75,35 @@ class PatternClassifier:
         self.scaler = StandardScaler()
 
     def predict(self, events: List[Dict]) -> Dict:
-        """Predict the behavioral pattern for a set of events.
-
-        Returns:
-            {
-                "pattern": str,           # One of the 4 labels
-                "confidence": float,      # 0.0 - 1.0
-                "probabilities": dict,    # Label → probability
-                "features": dict,         # Extracted features
-            }
+        """Predict the behavioral pattern using lightning-fast ONNX (fallback to sk-learn/rules).
         """
         features = extract_features(events)
-        vector = features_to_vector(features).reshape(1, -1)
+        vector = features_to_vector(features).reshape(1, -1).astype(np.float32)
+
+        if self.sess is not None:
+            try:
+                input_name = self.sess.get_inputs()[0].name
+                label_name = self.sess.get_outputs()[0].name
+                prob_name = self.sess.get_outputs()[1].name
+
+                pred_onx = self.sess.run([label_name, prob_name], {input_name: vector})
+                prediction = str(pred_onx[0][0])
+                probabilities = pred_onx[1][0]  # Raw tensor array
+                
+                prob_dict = {
+                    label: round(float(p), 3)
+                    for label, p in zip(self._labels, probabilities)
+                }
+                confidence = float(max(probabilities))
+
+                return {
+                    "pattern": prediction,
+                    "confidence": round(confidence, 3),
+                    "probabilities": prob_dict,
+                    "features": features,
+                }
+            except Exception as e:
+                print(f"[PatternClassifier] ONNX Predict Error: {e}")
 
         if not hasattr(self.model, "classes_"):
             # Model not yet trained — use rule-based fallback
@@ -165,6 +191,13 @@ class PatternClassifier:
             pickle.dump(self.model, f)
         with open(MODEL_DIR / "pattern_scaler.pkl", "wb") as f:
             pickle.dump(self.scaler, f)
+            
+        import sys
+        import subprocess
+        # Automatically compile the new ML generation into ONNX
+        script_path = Path(__file__).resolve().parent / "export_onnx.py"
+        subprocess.run([sys.executable, str(script_path)], check=False)
+        self._load_or_init()
 
     def _rule_based_predict(self, features: Dict[str, float]) -> Dict:
         """Fallback rule-based classification when model isn't trained."""

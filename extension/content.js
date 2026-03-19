@@ -58,6 +58,8 @@ function createOverlay(level, message) {
   }
 
   if (level === "warn") {
+    const feedbackBtn = createButton("Productive Site", "secondary", reportFalsePositive);
+    actions.appendChild(feedbackBtn);
     const dismissBtn = createButton("I need this", "secondary", () => {
       respondToIntervention("dismissed");
       removeOverlay();
@@ -73,6 +75,8 @@ function createOverlay(level, message) {
   }
 
   if (level === "soft_block") {
+    const feedbackBtn = createButton("Productive Site", "secondary", reportFalsePositive);
+    actions.appendChild(feedbackBtn);
     const timer = document.createElement("p");
     timer.className = "adaptifocus-timer";
     let countdown = 15;
@@ -104,6 +108,8 @@ function createOverlay(level, message) {
   }
 
   if (level === "hard_block") {
+    const feedbackBtn = createButton("Productive Site", "secondary", reportFalsePositive);
+    actions.appendChild(feedbackBtn);
     const overrideBtn = createButton("Override (I need this)", "danger", () => {
       respondToIntervention("overrode");
       removeOverlay();
@@ -155,6 +161,16 @@ function respondToIntervention(response) {
     type: "INTERVENTION_RESPONSE",
     response: response,
   });
+}
+
+function reportFalsePositive() {
+  chrome.runtime.sendMessage({
+    type: "SUBMIT_FEEDBACK",
+    url: window.location.href,
+    domain: window.location.hostname,
+  });
+  respondToIntervention("dismissed");
+  removeOverlay();
 }
 
 // ── Listen for intervention messages ────────────────────────────────────────
