@@ -41,6 +41,7 @@ class User(Base):
     sessions = relationship("StudySession", back_populates="user", lazy="dynamic")
     interventions = relationship("Intervention", back_populates="user", lazy="dynamic")
     patterns = relationship("UserPattern", back_populates="user", lazy="dynamic")
+    feedback = relationship("UserFeedback", back_populates="user", lazy="dynamic")
 
 
 class BrowsingEvent(Base):
@@ -119,3 +120,20 @@ class UserPattern(Base):
     last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     user = relationship("User", back_populates="patterns")
+
+
+class UserFeedback(Base):
+    """User feedback for ML predictions (false positives etc)."""
+
+    __tablename__ = "user_feedback"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
+    url = Column(String(2048), nullable=True)
+    domain = Column(String(255), nullable=True)
+    prediction = Column(String(50), nullable=True)
+    actual_category = Column(String(50), nullable=True)
+    is_false_positive = Column(Boolean, default=True)
+
+    user = relationship("User", back_populates="feedback")
