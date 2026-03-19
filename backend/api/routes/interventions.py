@@ -3,7 +3,9 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from sqlalchemy import func
 
 from database.db import get_db
 from database.models import BrowsingEvent, Intervention, StudySession
@@ -18,9 +20,9 @@ _coordinator = CoordinatorAgent()
 
 
 @router.post("/check", response_model=InterventionResponse)
-def check_intervention(
+async def check_intervention(
     request: InterventionRequest,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     user: User = Depends(require_user),
 ):
     """Check whether an intervention should be triggered for current browsing.
@@ -30,13 +32,14 @@ def check_intervention(
     today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
 
     # Fetch today's events for pattern analysis for the CURRENT USER
-    historical = (
-        db.query(BrowsingEvent)
+    query = (
+        select(BrowsingEvent)
         .filter(BrowsingEvent.user_id == user.id)
         .filter(BrowsingEvent.timestamp >= today_start)
         .order_by(BrowsingEvent.timestamp.asc())
-        .all()
     )
+    result = await db.execute(query)
+    historical = result.scalars().all()
 
     historical_dicts = [
         {
@@ -60,18 +63,19 @@ def check_intervention(
     )
 
     # Interventions today for the CURRENT USER
-    interventions_today = (
-        db.query(Intervention)
+    int_query = (
+        select(func.count(Intervention.id))
         .filter(Intervention.user_id == user.id)
         .filter(Intervention.timestamp >= today_start)
-        .count()
     )
+    res = await db.execute(int_query)
+    interventions_today = res.scalar() or 0
 
     # Active study session
     session_active = False
     study_topic = None
     if request.session_id:
-        session = db.query(StudySession).get(request.session_id)
+        session = await db.get(StudySession, request.session_id)
         if session and session.is_active:
             session_active = True
             study_topic = session.study_topic
@@ -104,7 +108,7 @@ def check_intervention(
             session_id=request.session_id,
         )
         db.add(intervention)
-        db.commit()
+        await db.commit()
 
     return InterventionResponse(
         should_intervene=decision["should_intervene"],
@@ -116,23 +120,24 @@ def check_intervention(
 
 
 @router.post("/{intervention_id}/response")
-def record_response(
+async def record_response(
     intervention_id: int,
     response: str,  # "dismissed", "complied", "overrode"
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     user: User = Depends(require_user),
 ):
     """Record the user's response to an intervention."""
-    intervention = (
-        db.query(Intervention)
+    query = (
+        select(Intervention)
         .filter(Intervention.id == intervention_id, Intervention.user_id == user.id)
-        .first()
     )
+    res = await db.execute(query)
+    intervention = res.scalars().first()
     if not intervention:
         return {"error": "Intervention not found"}
 
     intervention.user_response = response
     intervention.was_effective = response == "complied"
-    db.commit()
+    await db.commit()
 
     return {"status": "recorded", "was_effective": intervention.was_effective}

@@ -5,8 +5,9 @@ from collections import defaultdict
 import json
 
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from sqlalchemy import func, delete
 
 from database.db import get_db
 from database.models import BrowsingEvent, Intervention, StudySession, UserPattern, User
@@ -18,20 +19,21 @@ router = APIRouter(prefix="/analytics", tags=["analytics"])
 
 
 @router.get("/focus-summary", response_model=FocusSummary)
-def get_focus_summary(
+async def get_focus_summary(
     days: int = 1,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     user: User = Depends(require_user),
 ):
     """Summary of focus vs distraction for the last N days."""
     since = datetime.utcnow() - timedelta(days=days)
 
-    events = (
-        db.query(BrowsingEvent)
+    query = (
+        select(BrowsingEvent)
         .filter(BrowsingEvent.user_id == user.id)
         .filter(BrowsingEvent.timestamp >= since)
-        .all()
     )
+    result = await db.execute(query)
+    events = result.scalars().all()
 
     total_seconds = sum(e.duration_seconds for e in events)
     distraction_seconds = sum(e.duration_seconds for e in events if e.is_distraction)
@@ -61,12 +63,13 @@ def get_focus_summary(
     )[:5]
 
     # Interventions
-    interventions = (
-        db.query(Intervention)
+    interv_query = (
+        select(Intervention)
         .filter(Intervention.user_id == user.id)
         .filter(Intervention.timestamp >= since)
-        .all()
     )
+    interv_result = await db.execute(interv_query)
+    interventions = interv_result.scalars().all()
     success_count = sum(1 for i in interventions if i.was_effective)
     success_rate = (
         (success_count / len(interventions) * 100) if interventions else 0.0
@@ -91,21 +94,22 @@ def get_focus_summary(
 
 
 @router.get("/hourly-breakdown")
-def get_hourly_breakdown(
+async def get_hourly_breakdown(
     days: int = 7,
     tz_offset: int = 0,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     user: User = Depends(require_user),
 ):
     """Hourly focus/distraction breakdown for pattern visualization."""
     since = datetime.utcnow() - timedelta(days=days)
 
-    events = (
-        db.query(BrowsingEvent)
+    query = (
+        select(BrowsingEvent)
         .filter(BrowsingEvent.user_id == user.id)
         .filter(BrowsingEvent.timestamp >= since)
-        .all()
     )
+    result = await db.execute(query)
+    events = result.scalars().all()
 
     hourly: dict[int, dict] = {
         h: {"hour": h, "focus": 0, "distraction": 0, "total": 0}
@@ -128,8 +132,8 @@ def get_hourly_breakdown(
 
 
 @router.get("/patterns", response_model=list[PatternResponse])
-def get_patterns(
-    db: Session = Depends(get_db),
+async def get_patterns(
+    db: AsyncSession = Depends(get_db),
     user: User = Depends(require_user),
 ):
     """Get discovered user patterns.
@@ -138,12 +142,13 @@ def get_patterns(
     persists the findings, and returns the models.
     """
     two_weeks_ago = datetime.utcnow() - timedelta(days=14)
-    events = (
-        db.query(BrowsingEvent)
+    query = (
+        select(BrowsingEvent)
         .filter(BrowsingEvent.user_id == user.id)
         .filter(BrowsingEvent.timestamp >= two_weeks_ago)
-        .all()
     )
+    result = await db.execute(query)
+    events = result.scalars().all()
 
     event_dicts = [
         {
@@ -162,7 +167,7 @@ def get_patterns(
     result = agent.analyze({"events": event_dicts})
 
     # Clear old patterns and save new ones
-    db.query(UserPattern).filter(UserPattern.user_id == user.id).delete()
+    await db.execute(delete(UserPattern).filter(UserPattern.user_id == user.id))
     
     patterns = result.get("patterns", [])
     for p in patterns:
@@ -175,35 +180,37 @@ def get_patterns(
         ))
     
     if patterns:
-        db.commit()
+        await db.commit()
 
-    return (
-        db.query(UserPattern)
+    query = (
+        select(UserPattern)
         .filter(UserPattern.user_id == user.id)
         .order_by(UserPattern.confidence.desc())
         .limit(20)
-        .all()
     )
+    res = await db.execute(query)
+    return res.scalars().all()
 
 
 @router.get("/intervention-history")
-def get_intervention_history(
+async def get_intervention_history(
     days: int = 7,
     limit: int = 50,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     user: User = Depends(require_user),
 ):
     """Get recent intervention history with outcomes."""
     since = datetime.utcnow() - timedelta(days=days)
 
-    interventions = (
-        db.query(Intervention)
+    query = (
+        select(Intervention)
         .filter(Intervention.user_id == user.id)
         .filter(Intervention.timestamp >= since)
         .order_by(Intervention.timestamp.desc())
         .limit(limit)
-        .all()
     )
+    result = await db.execute(query)
+    interventions = result.scalars().all()
 
     return [
         {

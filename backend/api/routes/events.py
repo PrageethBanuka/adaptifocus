@@ -4,7 +4,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
 from sqlalchemy import func
 
 from database.db import get_db
@@ -19,9 +20,9 @@ _context_agent = ContextAgent()
 
 
 @router.post("/", response_model=EventResponse)
-def create_event(
+async def create_event(
     event: EventCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     user: User = Depends(require_user),
 ):
     """Ingest a browsing event from the extension."""
@@ -64,22 +65,22 @@ def create_event(
         session_id=event.session_id,
     )
     db.add(db_event)
-    db.commit()
-    db.refresh(db_event)
+    await db.commit()
+    await db.refresh(db_event)
     return db_event
 
 
 @router.get("/", response_model=list[EventResponse])
-def list_events(
+async def list_events(
     limit: int = 50,
     offset: int = 0,
     since: Optional[str] = None,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     user: User = Depends(require_user),
 ):
     """List recent browsing events."""
     query = (
-        db.query(BrowsingEvent)
+        select(BrowsingEvent)
         .filter(BrowsingEvent.user_id == user.id)
         .order_by(BrowsingEvent.timestamp.desc())
     )
@@ -89,23 +90,25 @@ def list_events(
             query = query.filter(BrowsingEvent.timestamp >= since_dt)
         except ValueError:
             pass
-    return query.offset(offset).limit(limit).all()
+    result = await db.execute(query.offset(offset).limit(limit))
+    return result.scalars().all()
 
 
 @router.get("/today/summary")
-def today_summary(
-    db: Session = Depends(get_db),
+async def today_summary(
+    db: AsyncSession = Depends(get_db),
     user: User = Depends(require_user),
 ):
     """Get summary stats for today's browsing activity."""
     today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
 
-    events = (
-        db.query(BrowsingEvent)
+    query = (
+        select(BrowsingEvent)
         .filter(BrowsingEvent.user_id == user.id)
         .filter(BrowsingEvent.timestamp >= today_start)
-        .all()
     )
+    result = await db.execute(query)
+    events = result.scalars().all()
 
     total_seconds = sum(e.duration_seconds for e in events)
     distraction_seconds = sum(

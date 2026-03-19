@@ -8,7 +8,8 @@ import jwt
 import requests
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
 
 from config import JWT_SECRET, JWT_ALGORITHM, JWT_EXPIRE_HOURS
 from database.db import get_db
@@ -73,9 +74,9 @@ def decode_token(token: str) -> dict:
         raise HTTPException(401, "Invalid token")
 
 
-def get_current_user(
+async def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> Optional[User]:
     """Get authenticated user or None."""
     if credentials is None:
@@ -83,14 +84,15 @@ def get_current_user(
 
     payload = decode_token(credentials.credentials)
     user_id = int(payload["sub"])
-    user = db.query(User).filter(User.id == user_id, User.is_active == True).first()
+    result = await db.execute(select(User).filter(User.id == user_id, User.is_active == True))
+    user = result.scalars().first()
 
     if not user:
         raise HTTPException(401, "User not found")
     return user
 
 
-def require_user(user: Optional[User] = Depends(get_current_user)) -> User:
+async def require_user(user: Optional[User] = Depends(get_current_user)) -> User:
     """Require authenticated user."""
     if user is None:
         raise HTTPException(

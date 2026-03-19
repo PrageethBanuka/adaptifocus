@@ -10,7 +10,7 @@ Since the extension is currently in Beta, it is not yet available on the Chrome 
 
 ## 🚀 Phase 1: Install the Extension
 
-1. **Download & Exract:** Download the `extension.zip` file provided to you via WhatsApp. Double-click it to unzip it into a folder on your computer.
+1. **Download & Extract:** Download the extension by clicking here: [extension.zip (v0.9.0-beta)](https://github.com/PrageethBanuka/adaptifocus/releases/download/v0.9.0-beta/extension.zip). Double-click the downloaded file to unzip it into a folder on your computer.
 2. **Open Extensions:** Open Google Chrome. Copy and paste `chrome://extensions/` into your URL bar and hit Enter.
 3. **Developer Mode:** In the top-right corner of the Extensions page, you will see a toggle for **Developer mode**. Turn it **ON**.
 4. **Load Unpacked:** Because you turned on Developer mode, a new **Load unpacked** button will appear in the top-left corner. Click it.
@@ -41,5 +41,12 @@ The AI will silently analyze your browsing habits in the background. The extensi
 * **Red (⚠️)**: When you are actively distracted.
 
 Click the extension icon and click **📊 Dashboard** to view your beautiful web dashboard and track your focus stats over time!
+
+### 🖼️ Previews
+**The Extension Popup:**
+![Extension Popup](extension_preview.png)
+
+**The Analytics Dashboard:**
+![Dashboard Preview](dashboard_preview.png)
 
 **Issues?** Please message the researcher directly on WhatsApp if you have any questions or bugs.

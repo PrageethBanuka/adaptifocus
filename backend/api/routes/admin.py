@@ -4,7 +4,8 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
 from sqlalchemy import func
 
 from database.db import get_db
@@ -24,35 +25,31 @@ def verify_admin(key: str):
 
 
 @router.get("/overview")
-def admin_overview(key: str, db: Session = Depends(get_db)):
+async def admin_overview(key: str, db: AsyncSession = Depends(get_db)):
     """High-level overview of all users and activity."""
     verify_admin(key)
 
-    total_users = db.query(User).count()
-    active_users = (
-        db.query(func.count(func.distinct(BrowsingEvent.user_id)))
-        .filter(BrowsingEvent.timestamp >= datetime.utcnow() - timedelta(days=7))
-        .scalar()
-    )
+    res = await db.execute(select(func.count(User.id)))
+    total_users = res.scalar()
+    res = await db.execute(select(func.count(func.distinct(BrowsingEvent.user_id))).filter(BrowsingEvent.timestamp >= datetime.utcnow() - timedelta(days=7)))
+    active_users = res.scalar() or 0
 
-    total_events = db.query(BrowsingEvent).count()
-    total_sessions = db.query(StudySession).count()
-    total_interventions = db.query(Intervention).count()
+    res = await db.execute(select(func.count(BrowsingEvent.id)))
+    total_events = res.scalar()
+    res = await db.execute(select(func.count(StudySession.id)))
+    total_sessions = res.scalar()
+    res = await db.execute(select(func.count(Intervention.id)))
+    total_interventions = res.scalar()
 
     # Group distribution
-    groups = (
-        db.query(User.experiment_group, func.count(User.id))
-        .group_by(User.experiment_group)
-        .all()
-    )
+    res = await db.execute(select(User.experiment_group, func.count(User.id)).group_by(User.experiment_group))
+    groups = res.all()
 
     # Total time tracked
-    total_seconds = db.query(func.sum(BrowsingEvent.duration_seconds)).scalar() or 0
-    distraction_seconds = (
-        db.query(func.sum(BrowsingEvent.duration_seconds))
-        .filter(BrowsingEvent.is_distraction == True)
-        .scalar() or 0
-    )
+    res = await db.execute(select(func.sum(BrowsingEvent.duration_seconds)))
+    total_seconds = res.scalar() or 0
+    res = await db.execute(select(func.sum(BrowsingEvent.duration_seconds)).filter(BrowsingEvent.is_distraction == True))
+    distraction_seconds = res.scalar() or 0
 
     return {
         "total_users": total_users,
@@ -72,26 +69,25 @@ def admin_overview(key: str, db: Session = Depends(get_db)):
 
 
 @router.get("/users")
-def admin_users(key: str, db: Session = Depends(get_db)):
+async def admin_users(key: str, db: AsyncSession = Depends(get_db)):
     """Per-user breakdown with stats."""
     verify_admin(key)
 
-    users = db.query(User).order_by(User.created_at.desc()).all()
+    res = await db.execute(select(User).order_by(User.created_at.desc()))
+    users = res.scalars().all()
     result = []
 
     for user in users:
         # User's events
-        event_count = db.query(BrowsingEvent).filter(
-            BrowsingEvent.user_id == user.id
-        ).count()
+        res = await db.execute(select(func.count(BrowsingEvent.id)).filter(BrowsingEvent.user_id == user.id))
+        event_count = res.scalar() or 0
 
-        total_sec = (
-            db.query(func.sum(BrowsingEvent.duration_seconds))
-            .filter(BrowsingEvent.user_id == user.id)
-            .scalar() or 0
-        )
+        res = await db.execute(select(func.sum(BrowsingEvent.duration_seconds)).filter(BrowsingEvent.user_id == user.id))
+        total_sec = res.scalar() or 0
 
-        distraction_sec = (
+        res = await db.execute(select(func.sum(BrowsingEvent.duration_seconds)).filter(BrowsingEvent.user_id == user.id, BrowsingEvent.is_distraction == True))
+        distraction_sec = res.scalar() or 0
+        # (
             db.query(func.sum(BrowsingEvent.duration_seconds))
             .filter(
                 BrowsingEvent.user_id == user.id,
@@ -100,21 +96,15 @@ def admin_users(key: str, db: Session = Depends(get_db)):
             .scalar() or 0
         )
 
-        session_count = db.query(StudySession).filter(
-            StudySession.user_id == user.id
-        ).count()
+        res = await db.execute(select(func.count(StudySession.id)).filter(StudySession.user_id == user.id))
+        session_count = res.scalar() or 0
 
-        intervention_count = db.query(Intervention).filter(
-            Intervention.user_id == user.id
-        ).count()
+        res = await db.execute(select(func.count(Intervention.id)).filter(Intervention.user_id == user.id))
+        intervention_count = res.scalar() or 0
 
         # Last activity
-        last_event = (
-            db.query(BrowsingEvent)
-            .filter(BrowsingEvent.user_id == user.id)
-            .order_by(BrowsingEvent.timestamp.desc())
-            .first()
-        )
+        res = await db.execute(select(BrowsingEvent).filter(BrowsingEvent.user_id == user.id).order_by(BrowsingEvent.timestamp.desc()))
+        last_event = res.scalars().first()
 
         result.append({
             "id": user.id,
@@ -140,7 +130,7 @@ def admin_users(key: str, db: Session = Depends(get_db)):
 
 
 @router.get("/experiment-comparison")
-def experiment_comparison(key: str, db: Session = Depends(get_db)):
+async def experiment_comparison(key: str, db: AsyncSession = Depends(get_db)):
     """Compare metrics across experiment groups."""
     verify_admin(key)
 
@@ -148,7 +138,8 @@ def experiment_comparison(key: str, db: Session = Depends(get_db)):
     result = {}
 
     for group in groups:
-        group_users = db.query(User).filter(User.experiment_group == group).all()
+        res = await db.execute(select(User).filter(User.experiment_group == group))
+        group_users = res.scalars().all()
         user_ids = [u.id for u in group_users]
 
         if not user_ids:
@@ -161,13 +152,12 @@ def experiment_comparison(key: str, db: Session = Depends(get_db)):
             }
             continue
 
-        total_sec = (
-            db.query(func.sum(BrowsingEvent.duration_seconds))
-            .filter(BrowsingEvent.user_id.in_(user_ids))
-            .scalar() or 0
-        )
+        res = await db.execute(select(func.sum(BrowsingEvent.duration_seconds)).filter(BrowsingEvent.user_id.in_(user_ids)))
+        total_sec = res.scalar() or 0
 
-        distraction_sec = (
+        res = await db.execute(select(func.sum(BrowsingEvent.duration_seconds)).filter(BrowsingEvent.user_id == user.id, BrowsingEvent.is_distraction == True))
+        distraction_sec = res.scalar() or 0
+        # (
             db.query(func.sum(BrowsingEvent.duration_seconds))
             .filter(
                 BrowsingEvent.user_id.in_(user_ids),
@@ -176,17 +166,11 @@ def experiment_comparison(key: str, db: Session = Depends(get_db)):
             .scalar() or 0
         )
 
-        session_count = (
-            db.query(StudySession)
-            .filter(StudySession.user_id.in_(user_ids))
-            .count()
-        )
+        res = await db.execute(select(func.count(StudySession.id)).filter(StudySession.user_id.in_(user_ids)))
+        session_count = res.scalar() or 0
 
-        intervention_count = (
-            db.query(Intervention)
-            .filter(Intervention.user_id.in_(user_ids))
-            .count()
-        )
+        res = await db.execute(select(func.count(Intervention.id)).filter(Intervention.user_id.in_(user_ids)))
+        intervention_count = res.scalar() or 0
 
         result[group] = {
             "user_count": len(user_ids),
@@ -204,7 +188,7 @@ def experiment_comparison(key: str, db: Session = Depends(get_db)):
 
 
 @router.get("/top-domains")
-def top_domains(key: str, limit: int = 20, db: Session = Depends(get_db)):
+async def top_domains(key: str, limit: int = 20, db: AsyncSession = Depends(get_db)):
     """Top domains across all users by time spent."""
     verify_admin(key)
 
