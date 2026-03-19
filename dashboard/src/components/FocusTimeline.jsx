@@ -1,36 +1,37 @@
 /**
- * FocusTimeline — Hourly stacked bar chart showing focus vs distraction.
+ * FocusTimeline — Hourly stacked bar chart with clean Apple styling.
  */
 
+import { BarChart3 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, Legend,
+  Tooltip, ResponsiveContainer,
 } from 'recharts'
 
 function formatHour(h) {
-  if (h === 0) return '12AM'
-  if (h === 12) return '12PM'
-  if (h < 12) return `${h}AM`
-  return `${h - 12}PM`
+  if (h === 0) return '12a'
+  if (h === 12) return '12p'
+  if (h < 12) return `${h}a`
+  return `${h - 12}p`
 }
 
 function formatSeconds(s) {
   if (s < 60) return `${s}s`
-  const m = Math.floor(s / 60)
-  return `${m}m`
+  return `${Math.floor(s / 60)}m`
 }
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload) return null
   return (
     <div style={{
-      background: '#1a1a2e',
-      border: '1px solid rgba(255,255,255,0.1)',
-      borderRadius: '8px',
-      padding: '12px 16px',
-      fontSize: '13px',
+      background: 'rgba(28, 28, 30, 0.95)',
+      backdropFilter: 'blur(20px)',
+      border: '1px solid rgba(255,255,255,0.08)',
+      borderRadius: '10px',
+      padding: '10px 14px',
+      fontSize: '12px',
     }}>
-      <p style={{ fontWeight: 600, marginBottom: '6px', color: '#f0f0f0' }}>
+      <p style={{ fontWeight: 600, marginBottom: '4px', color: '#F5F5F7', fontSize: '11px' }}>
         {formatHour(label)}
       </p>
       {payload.map((entry) => (
@@ -46,59 +47,53 @@ export default function FocusTimeline({ data }) {
   if (!data || data.length === 0) {
     return (
       <div className="card chart-card">
-        <div className="card-label">📊 Hourly Focus Timeline</div>
+        <div className="card-label"><BarChart3 size={14} /> Hourly Timeline</div>
         <div className="empty-state">
-          <div className="empty-icon">📊</div>
+          <div className="empty-icon"><BarChart3 size={18} /></div>
           <p>No hourly data available</p>
         </div>
       </div>
     )
   }
 
-  const chartData = data.map(d => ({
-    ...d,
-    hourLabel: formatHour(d.hour),
-  }))
-
   return (
     <div className="card chart-card">
-      <div className="card-label">📊 Hourly Focus Timeline</div>
+      <div className="card-label"><BarChart3 size={14} /> Hourly Timeline</div>
       <div className="chart-wrapper">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chartData} barGap={0}>
+          <BarChart data={data} barGap={0}>
             <CartesianGrid
               strokeDasharray="3 3"
-              stroke="rgba(255,255,255,0.05)"
+              stroke="rgba(255,255,255,0.03)"
               vertical={false}
             />
             <XAxis
               dataKey="hour"
               tickFormatter={formatHour}
-              stroke="rgba(255,255,255,0.2)"
-              tick={{ fill: '#606070', fontSize: 11 }}
-              axisLine={{ stroke: 'rgba(255,255,255,0.08)' }}
+              stroke="transparent"
+              tick={{ fill: '#48484A', fontSize: 10 }}
+              axisLine={false}
+              tickLine={false}
             />
             <YAxis
               tickFormatter={formatSeconds}
-              stroke="rgba(255,255,255,0.2)"
-              tick={{ fill: '#606070', fontSize: 11 }}
-              axisLine={{ stroke: 'rgba(255,255,255,0.08)' }}
+              stroke="transparent"
+              tick={{ fill: '#48484A', fontSize: 10 }}
+              axisLine={false}
+              tickLine={false}
             />
             <Tooltip content={<CustomTooltip />} />
-            <Legend
-              wrapperStyle={{ fontSize: '12px', color: '#a0a0b0' }}
-            />
             <Bar
               dataKey="focus"
               name="Focus"
-              fill="#4ecdc4"
+              fill="#30D158"
               radius={[3, 3, 0, 0]}
               stackId="stack"
             />
             <Bar
               dataKey="distraction"
               name="Distraction"
-              fill="#ff6b6b"
+              fill="#FF453A"
               radius={[3, 3, 0, 0]}
               stackId="stack"
             />
