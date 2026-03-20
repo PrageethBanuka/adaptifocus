@@ -13,6 +13,7 @@ from database.models import BrowsingEvent, User
 from api.models.schemas import EventCreate, EventResponse
 from api.auth import require_user
 from cache import cache
+from rate_limiter import limiter, RATE_WRITE
 from agents.context_agent import ContextAgent, _extract_domain, DISTRACTION_DOMAINS, MIXED_DOMAINS
 
 router = APIRouter(prefix="/events", tags=["events"])
@@ -21,7 +22,9 @@ _context_agent = ContextAgent()
 
 
 @router.post("/", response_model=EventResponse)
+@limiter.limit(RATE_WRITE)
 async def create_event(
+    request: "Request",
     event: EventCreate,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_user),

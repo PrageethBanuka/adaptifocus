@@ -11,6 +11,7 @@ from sqlalchemy import func, delete
 from database.db import get_db
 from database.models import User
 from api.auth import verify_google_token, create_token, require_user
+from rate_limiter import limiter, RATE_AUTH, RATE_STANDARD
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -48,7 +49,8 @@ class UserProfile(BaseModel):
 # ── Routes ───────────────────────────────────────────────────────────────────
 
 @router.post("/google", response_model=TokenResponse)
-async def google_signin(req: GoogleAuthRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit(RATE_AUTH)
+async def google_signin(request: "Request", req: GoogleAuthRequest, db: AsyncSession = Depends(get_db)):
     """Sign in with Google. Creates account on first login."""
     # Verify the Google token
     google_info = verify_google_token(req.id_token)
@@ -104,7 +106,8 @@ class DevLoginRequest(BaseModel):
 
 
 @router.post("/dev-login", response_model=TokenResponse)
-async def dev_login(req: DevLoginRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit(RATE_AUTH)
+async def dev_login(request: "Request", req: DevLoginRequest, db: AsyncSession = Depends(get_db)):
     """Dev mode login — skips Google OAuth. Only works locally."""
     import os
     if os.getenv("DEV_MODE", "1") != "1":
@@ -129,7 +132,8 @@ async def dev_login(req: DevLoginRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/dev-signup", response_model=TokenResponse)
-async def dev_signup(req: DevLoginRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit(RATE_AUTH)
+async def dev_signup(request: "Request", req: DevLoginRequest, db: AsyncSession = Depends(get_db)):
     """Dev mode sign up — explicitly creates a new user."""
     import os
     if os.getenv("DEV_MODE", "1") != "1":
