@@ -218,24 +218,31 @@ async function flushEvents() {
   pendingEvents = [];
   chrome.storage.local.set({ pending_events: pendingEvents });
 
-  for (const event of batch) {
-    try {
-      const res = await fetch(`${API_BASE}/events/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${tok}`,
-        },
-        body: JSON.stringify(event),
-      });
-      
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
+  try {
+    const res = await fetch(`${API_BASE}/events/batch`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${tok}`,
+      },
+      body: JSON.stringify(batch),
+    });
+    
+    if (!res.ok) {
+      if (res.status === 429 || res.status === 502 || res.status === 503) {
+        throw new Error(`Server temporarily unavailable (Status: ${res.status}). Retrying next cycle.`);
       }
-    } catch (e) {
-      console.warn("[AdaptiFocus] Failed to send event, discarding to avoid corrupted loop:", e);
-      // We purposefully do not re-add to queue here. If the server is rejecting it (e.g. 422 Unprocessable)
-      // due to a bad schema or invalid timestamp, re-adding it will permanently break the extension's sync queue.
+      // If it's a 422 or 400 (bad schema) let it drop to avoid infinite retry loops of bad data.
+      throw new Error(`HTTP error! status: ${res.status}`);
+    }
+  } catch (e) {
+    if (e.message.includes("temporarily unavailable") || e.message.includes("Failed to fetch") || e.message.includes("NetworkError")) {
+      console.warn("[AdaptiFocus] Server offline or busy, retaining events for next cycle:", batch.length);
+      // Prepend the deeply failed batch back into pendingEvents so it tries again
+      pendingEvents = [...batch, ...pendingEvents];
+      chrome.storage.local.set({ pending_events: pendingEvents });
+    } else {
+      console.warn("[AdaptiFocus] Server firmly rejected event batch, discarding:", e);
     }
   }
 }

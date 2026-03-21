@@ -77,6 +77,65 @@ async def create_event(
     return db_event
 
 
+@router.post("/batch")
+@limiter.limit(RATE_WRITE)
+async def create_event_batch(
+    request: Request,
+    events: list[EventCreate],
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_user),
+):
+    """Ingest a batch of browsing events from the extension."""
+    if not events:
+        return {"status": "ok", "count": 0}
+
+    db_events = []
+    for event in events:
+        domain = event.domain or _extract_domain(event.url)
+
+        # Quick classification via context agent
+        context = _context_agent.analyze({
+            "current_url": event.url,
+            "current_title": event.title,
+            "current_domain": domain,
+            "study_topic": None,
+            "session_active": event.session_id is not None,
+            "recent_domains": [],
+        })
+
+        is_distraction = context["classification"] == "distraction"
+        distraction_score = max(0.0, -context["context_score"])
+
+        # Fallback: check known distraction domains
+        if not is_distraction and domain and domain in DISTRACTION_DOMAINS:
+            is_distraction = True
+            distraction_score = max(distraction_score, 0.7)
+
+        ts = event.timestamp or datetime.utcnow()
+        if ts.tzinfo is not None:
+            ts = ts.astimezone(timezone.utc).replace(tzinfo=None)
+
+        db_event = BrowsingEvent(
+            user_id=user.id,
+            timestamp=ts,
+            url=event.url[:2048] if event.url else None,
+            domain=domain[:255] if domain else None,
+            title=event.title[:512] if event.title else None,
+            duration_seconds=event.duration_seconds,
+            is_distraction=is_distraction,
+            distraction_score=distraction_score,
+            category=event.category or context["classification"],
+            session_id=event.session_id,
+        )
+        db_events.append(db_event)
+
+    db.add_all(db_events)
+    await db.commit()
+
+    await cache.invalidate_pattern(f"analytics:user:{user.id}:*")
+    return {"status": "ok", "count": len(db_events)}
+
+
 @router.get("/", response_model=list[EventResponse])
 async def list_events(
     limit: int = 50,
