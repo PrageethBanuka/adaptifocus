@@ -41,6 +41,12 @@ app = FastAPI(
     version="0.3.0",
 )
 
+# ── Proxy IP Resolution ──────────────────────────────────────────────────────
+# Fixes slowapi rate limiting behind Render/Heroku load balancers so it tracks
+# actual user IPs instead of banning the single proxy IP.
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
+
 # ── CORS ─────────────────────────────────────────────────────────────────────
 # Why: allow_origins=["*"] lets ANY website call your API, which is dangerous.
 # In production, only your dashboard and extension should be allowed.

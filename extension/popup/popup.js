@@ -126,7 +126,9 @@ async function devSubmit() {
     
     if (!res.ok) {
       if (res.status === 404) return showError("Account not found. Please click Sign Up.");
-      return showError("Login failed — is the backend running?");
+      if (res.status === 429) return showError("Too many tries. Please wait a minute.");
+      if (res.status === 502 || res.status === 503) return showError("Server is waking up (takes ~30s). Try again.");
+      return showError(`Login failed (${res.status}). Server might be offline.`);
     }
     
     const data = await res.json();
@@ -150,7 +152,9 @@ async function devSignup() {
 
     if (!res.ok) {
       if (res.status === 409) return showError("Account already exists. Please click Login.");
-      return showError("Signup failed — is the backend running?");
+      if (res.status === 429) return showError("Too many tries. Please wait a minute.");
+      if (res.status === 502 || res.status === 503) return showError("Server is waking up (takes ~30s). Try again.");
+      return showError(`Signup failed (${res.status}). Server might be offline.`);
     }
 
     const data = await res.json();
