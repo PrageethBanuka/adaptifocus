@@ -58,9 +58,9 @@ async def create_event(
     db_event = BrowsingEvent(
         user_id=user.id,
         timestamp=ts,
-        url=event.url,
-        domain=domain,
-        title=event.title,
+        url=event.url[:2048] if event.url else None,
+        domain=domain[:255] if domain else None,
+        title=event.title[:512] if event.title else None,
         duration_seconds=event.duration_seconds,
         is_distraction=is_distraction,
         distraction_score=distraction_score,
