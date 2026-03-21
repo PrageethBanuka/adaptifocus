@@ -18,7 +18,7 @@ from sqlalchemy import func
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database.db import async_session
+from database.db import SessionLocal
 from database.models import BrowsingEvent, UserFeedback
 from ml.pattern_classifier import PatternClassifier
 
@@ -128,7 +128,7 @@ async def retrain():
     """Main retraining entrypoint."""
     print("[Retrain] Starting auto-retraining pipeline...")
 
-    async with async_session() as db:
+    async with SessionLocal() as db:
         # Check if there's any new feedback to learn from
         count_result = await db.execute(select(func.count(UserFeedback.id)))
         feedback_count = count_result.scalar() or 0
