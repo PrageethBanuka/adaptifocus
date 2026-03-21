@@ -21,7 +21,7 @@ limiter = Limiter(key_func=get_remote_address)
 # Use these constants in route decorators: @limiter.limit(RATE_STANDARD)
 
 RATE_STANDARD = "60/minute"     # Normal API calls (analytics, stats)
-RATE_AUTH = "10/minute"         # Login/signup attempts
-RATE_WRITE = "30/minute"        # Event ingestion, session starts
-RATE_HEAVY = "10/minute"        # ML retraining, pattern analysis
-RATE_CLASSIFY = "120/minute"    # Page classification (called frequently)
+RATE_AUTH = "60/minute"         # Login/signup attempts (increased to prevent blocks)
+RATE_WRITE = "60/minute"        # Event ingestion, session starts
+RATE_HEAVY = "20/minute"        # ML retraining, pattern analysis
+RATE_CLASSIFY = "200/minute"    # Page classification (called frequently)
