@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 from typing import Optional
-from pydantic import BaseModel, Field, field_serializer
+from pydantic import BaseModel, Field, field_serializer, field_validator
 
 def ensure_utc(dt: Optional[datetime]) -> Optional[str]:
     if dt is None:
@@ -25,6 +25,14 @@ class EventCreate(BaseModel):
     category: Optional[str] = None
     session_id: Optional[int] = None
     timestamp: Optional[datetime] = None
+
+    @field_validator('url', 'domain', 'title', mode='before')
+    @classmethod
+    def truncate_strings(cls, v: Optional[str]) -> Optional[str]:
+        """Prevent DB truncation errors by capping strings to 2000 chars."""
+        if isinstance(v, str) and len(v) > 2000:
+            return v[:2000]
+        return v
 
 
 class EventResponse(BaseModel):
