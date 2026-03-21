@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -50,7 +50,7 @@ class UserProfile(BaseModel):
 
 @router.post("/google", response_model=TokenResponse)
 @limiter.limit(RATE_AUTH)
-async def google_signin(request: "Request", req: GoogleAuthRequest, db: AsyncSession = Depends(get_db)):
+async def google_signin(request: Request, req: GoogleAuthRequest, db: AsyncSession = Depends(get_db)):
     """Sign in with Google. Creates account on first login."""
     # Verify the Google token
     google_info = verify_google_token(req.id_token)
@@ -107,7 +107,7 @@ class DevLoginRequest(BaseModel):
 
 @router.post("/dev-login", response_model=TokenResponse)
 @limiter.limit(RATE_AUTH)
-async def dev_login(request: "Request", req: DevLoginRequest, db: AsyncSession = Depends(get_db)):
+async def dev_login(request: Request, req: DevLoginRequest, db: AsyncSession = Depends(get_db)):
     """Dev mode login — skips Google OAuth. Only works locally."""
     import os
     if os.getenv("DEV_MODE", "1") != "1":
@@ -133,7 +133,7 @@ async def dev_login(request: "Request", req: DevLoginRequest, db: AsyncSession =
 
 @router.post("/dev-signup", response_model=TokenResponse)
 @limiter.limit(RATE_AUTH)
-async def dev_signup(request: "Request", req: DevLoginRequest, db: AsyncSession = Depends(get_db)):
+async def dev_signup(request: Request, req: DevLoginRequest, db: AsyncSession = Depends(get_db)):
     """Dev mode sign up — explicitly creates a new user."""
     import os
     if os.getenv("DEV_MODE", "1") != "1":

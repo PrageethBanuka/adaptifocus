@@ -2,8 +2,7 @@
 
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func
@@ -24,7 +23,7 @@ _context_agent = ContextAgent()
 @router.post("/", response_model=EventResponse)
 @limiter.limit(RATE_WRITE)
 async def create_event(
-    request: "Request",
+    request: Request,
     event: EventCreate,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_user),
