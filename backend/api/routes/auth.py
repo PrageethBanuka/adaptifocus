@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func, delete
+from sqlalchemy.exc import IntegrityError
 
 from database.db import get_db
 from database.models import User
@@ -77,9 +78,16 @@ async def google_signin(request: Request, req: GoogleAuthRequest, db: AsyncSessi
             experiment_group=group,
         )
         db.add(user)
-        await db.commit()
-        await db.refresh(user)
-        is_new = True
+        try:
+            await db.commit()
+            await db.refresh(user)
+            is_new = True
+        except IntegrityError:
+            # Race condition: another request created the user
+            await db.rollback()
+            result = await db.execute(select(User).filter(User.email == email))
+            user = result.scalars().first()
+            is_new = False
 
     if not user.is_active:
         raise HTTPException(403, "Account deactivated")
@@ -158,8 +166,12 @@ async def dev_signup(request: Request, req: DevLoginRequest, db: AsyncSession = 
         consent_given=True,
     )
     db.add(user)
-    await db.commit()
-    await db.refresh(user)
+    try:
+        await db.commit()
+        await db.refresh(user)
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="User already exists. Please log in.")
 
     token = create_token(user.id, user.email)
     return TokenResponse(
