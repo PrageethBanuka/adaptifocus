@@ -61,9 +61,9 @@ function App() {
       <div className="dashboard-container">
         <div className="empty-state" style={{ paddingTop: '80px' }}>
           <div className="empty-icon"><Focus size={20} /></div>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '6px' }}>Could not connect to the API</p>
-          <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-            Make sure the backend is running
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '6px' }}>Could not load data</p>
+          <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+            {error}
           </p>
           <button
             className="control-btn"
