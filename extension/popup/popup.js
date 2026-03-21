@@ -112,11 +112,28 @@ async function devLogin() {
   document.getElementById("dev-name").focus();
 }
 
+function setLoadingState(btnId, isLoading, defaultText) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+  if (isLoading) {
+    btn.disabled = true;
+    btn.textContent = "Connecting...";
+    btn.style.opacity = "0.7";
+    btn.style.cursor = "not-allowed";
+  } else {
+    btn.disabled = false;
+    btn.textContent = defaultText;
+    btn.style.opacity = "1";
+    btn.style.cursor = "pointer";
+  }
+}
+
 async function devSubmit() {
   const name = document.getElementById("dev-name").value.trim();
   const email = document.getElementById("dev-email").value.trim();
   if (!name || !email) return showError("Please enter your name and email");
 
+  setLoadingState("dev-submit-btn", true);
   try {
     const res = await fetch(`${API_BASE}/auth/dev-login`, {
       method: "POST",
@@ -135,6 +152,8 @@ async function devSubmit() {
     await handleLoginSuccess(data);
   } catch (e) {
     showError("Cannot connect to server. Try again in 30s (server may be waking up).");
+  } finally {
+    setLoadingState("dev-submit-btn", false, "Login");
   }
 }
 
@@ -143,6 +162,7 @@ async function devSignup() {
   const email = document.getElementById("dev-email").value.trim();
   if (!name || !email) return showError("Please enter your name and email");
 
+  setLoadingState("dev-signup-btn", true);
   try {
     const res = await fetch(`${API_BASE}/auth/dev-signup`, {
       method: "POST",
@@ -161,6 +181,8 @@ async function devSignup() {
     await handleLoginSuccess(data);
   } catch (e) {
     showError("Cannot connect to server. Try again in 30s (server may be waking up).");
+  } finally {
+    setLoadingState("dev-signup-btn", false, "Sign Up");
   }
 }
 
