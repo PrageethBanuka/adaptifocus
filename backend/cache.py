@@ -76,9 +76,17 @@ def _create_cache():
     redis_url = os.getenv("REDIS_URL")
     if redis_url:
         try:
-            return _RedisCache(redis_url)
-        except Exception:
-            pass
+            print(f"[Cache] Attempting to connect to Redis...")
+            instance = _RedisCache(redis_url)
+            print(f"[Cache] Connected to Redis successfully.")
+            return instance
+        except Exception as e:
+            print(f"[Cache] Redis connection failed: {e}")
+            if "rediss://" not in redis_url and "upstash.io" in redis_url:
+                print(f"[Cache] HINT: Upstash usually requires 'rediss://' (SSL) instead of 'redis://'.")
+            print(f"[Cache] Falling back to In-Memory cache.")
+    else:
+        print(f"[Cache] REDIS_URL not found. Using In-Memory fallback.")
     return _MemoryCache()
 
 
