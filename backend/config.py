@@ -2,6 +2,10 @@
 
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from .env if it exists
+load_dotenv()
 
 # Paths
 BASE_DIR = Path(__file__).resolve().parent
