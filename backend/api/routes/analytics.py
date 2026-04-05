@@ -13,6 +13,7 @@ from database.db import get_db
 from database.models import BrowsingEvent, Intervention, StudySession, UserPattern, User
 from api.models.schemas import FocusSummary, PatternResponse
 from api.auth import require_user
+from services.pattern_service import update_user_patterns
 from agents.pattern_agent import PatternAgent
 from cache import cache
 
@@ -43,7 +44,8 @@ async def get_focus_summary(
 
     total_seconds = sum(e.duration_seconds for e in events)
     distraction_seconds = sum(e.duration_seconds for e in events if e.is_distraction)
-    focus_seconds = total_seconds - distraction_seconds
+    neutral_seconds = sum(e.duration_seconds for e in events if not e.is_distraction and e.category == "neutral")
+    focus_seconds = total_seconds - distraction_seconds - neutral_seconds
 
     # Top distracting domains
     domain_distraction: dict[str, int] = defaultdict(int)
@@ -53,7 +55,7 @@ async def get_focus_summary(
             continue
         if e.is_distraction:
             domain_distraction[e.domain] += e.duration_seconds
-        else:
+        elif e.category != "neutral":
             domain_productive[e.domain] += e.duration_seconds
 
     top_distracting = sorted(
@@ -89,6 +91,7 @@ async def get_focus_summary(
         total_seconds=total_seconds,
         focus_seconds=focus_seconds,
         distraction_seconds=distraction_seconds,
+        neutral_seconds=neutral_seconds,
         focus_percentage=round(
             (focus_seconds / total_seconds * 100) if total_seconds > 0 else 0, 1
         ),
@@ -161,46 +164,8 @@ async def get_patterns(
     if cached:
         return cached
 
-    two_weeks_ago = datetime.utcnow() - timedelta(days=14)
-    query = (
-        select(BrowsingEvent)
-        .filter(BrowsingEvent.user_id == user.id)
-        .filter(BrowsingEvent.timestamp >= two_weeks_ago)
-    )
-    result = await db.execute(query)
-    events = result.scalars().all()
-
-    event_dicts = [
-        {
-            "url": e.url,
-            "domain": e.domain,
-            "title": e.title,
-            "duration_seconds": e.duration_seconds,
-            "timestamp": e.timestamp.isoformat() if e.timestamp else None,
-            "is_distraction": e.is_distraction,
-            "category": e.category,
-        }
-        for e in events
-    ]
-
-    agent = PatternAgent()
-    result = agent.analyze({"events": event_dicts})
-
-    # Clear old patterns and save new ones
-    await db.execute(delete(UserPattern).filter(UserPattern.user_id == user.id))
-    
-    patterns = result.get("patterns", [])
-    for p in patterns:
-        db.add(UserPattern(
-            user_id=user.id,
-            pattern_type=p["type"],
-            description=p["description"],
-            confidence=p["confidence"],
-            data_json=json.dumps(p["data"])
-        ))
-    
-    if patterns:
-        await db.commit()
+    # Compute and persist patterns
+    await update_user_patterns(user.id, db)
 
     query = (
         select(UserPattern)
@@ -210,12 +175,14 @@ async def get_patterns(
     )
     res = await db.execute(query)
     patterns = res.scalars().all()
+    
     await cache.set(cache_key, [
         {"id": p.id, "user_id": p.user_id, "pattern_type": p.pattern_type,
          "description": p.description, "confidence": p.confidence,
          "data_json": p.data_json, "discovered_at": str(p.discovered_at)}
         for p in patterns
     ], ttl=300)
+    
     return patterns
 
 

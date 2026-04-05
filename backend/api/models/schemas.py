@@ -125,6 +125,7 @@ class FocusSummary(BaseModel):
     total_seconds: int = 0
     focus_seconds: int = 0
     distraction_seconds: int = 0
+    neutral_seconds: int = 0
     focus_percentage: float = 0.0
     top_distracting_domains: list[dict] = []
     top_productive_domains: list[dict] = []

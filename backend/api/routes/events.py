@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func
@@ -14,6 +14,7 @@ from api.auth import require_user
 from cache import cache
 from rate_limiter import limiter, RATE_WRITE
 from agents.context_agent import ContextAgent, _extract_domain, DISTRACTION_DOMAINS, MIXED_DOMAINS
+from services.pattern_service import background_update_patterns
 
 router = APIRouter(prefix="/events", tags=["events"])
 
@@ -25,6 +26,7 @@ _context_agent = ContextAgent()
 async def create_event(
     request: Request,
     event: EventCreate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_user),
 ):
@@ -74,6 +76,9 @@ async def create_event(
     # Invalidate cached analytics for this user
     await cache.invalidate_pattern(f"analytics:user:{user.id}:*")
 
+    # Run pattern discovery/update in the background
+    background_tasks.add_task(background_update_patterns, user.id)
+
     return db_event
 
 
@@ -82,6 +87,7 @@ async def create_event(
 async def create_event_batch(
     request: Request,
     events: list[EventCreate],
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_user),
 ):
@@ -132,6 +138,10 @@ async def create_event_batch(
     db.add_all(db_events)
     await db.commit()
 
+    
+    # Run pattern discovery/update in the background
+    background_tasks.add_task(background_update_patterns, user.id)
+    
     await cache.invalidate_pattern(f"analytics:user:{user.id}:*")
     return {"status": "ok", "count": len(db_events)}
 
