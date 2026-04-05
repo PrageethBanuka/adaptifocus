@@ -218,20 +218,34 @@ class ContextAgent(BaseAgent):
                     f"Page is relevant to study topic '{study_topic}'"
                 )
 
-        # ── 5. Session context penalty ───────────────────────────────────
-        if session_active and domain_score < 0 and title_score <= 0:
-            # Only penalize during sessions if title doesn't indicate study
-            scores.append(-0.3)
-            reasons.append("Distraction detected during an active study session")
+        # ── 5. Session context modifier ──────────────────────────────────
+        if session_active:
+            if domain_score < 0 and title_score <= 0:
+                # Only penalize during sessions if title doesn't indicate study
+                scores.append(-0.3)
+                reasons.append("Distraction detected during an active study session")
+            elif domain_score == 0.0 and title_score >= 0:
+                # Boost neutral sites visited during an active study session
+                scores.append(0.3)
+                reasons.append("Neutral activity assumed productive during an active study session")
 
         # ── 6. Recent browsing trajectory ────────────────────────────────
         trajectory_score = self._score_trajectory(recent_domains)
         if abs(trajectory_score) > 0.1:
-            scores.append(trajectory_score * 0.5)
-            if trajectory_score < 0:
-                reasons.append("Recent browsing trend is shifting toward distractions")
+            if domain_score == 0.0:
+                # If neutral domain, rely heavily on trajectory
+                if trajectory_score > 0:
+                    scores.append(1.0)
+                    reasons.append("User transitioned to this neutral site directly from study sites")
+                elif trajectory_score < 0:
+                    scores.append(-1.0)
+                    reasons.append("User transitioned to this neutral site directly from distraction sites")
             else:
-                reasons.append("Recent browsing trend is focused on study content")
+                scores.append(trajectory_score * 0.5)
+                if trajectory_score < 0:
+                    reasons.append("Recent browsing trend is shifting toward distractions")
+                else:
+                    reasons.append("Recent browsing trend is focused on study content")
 
         # ── Aggregate ────────────────────────────────────────────────────
         is_adult = domain_score <= -2.0 or title_score <= -2.0
