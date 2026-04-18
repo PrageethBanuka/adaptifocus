@@ -20,6 +20,23 @@ from api.routes import events, interventions, sessions, analytics, auth, admin, 
 #   4. That's it — errors will appear in your Sentry dashboard automatically.
 
 SENTRY_DSN = os.getenv("SENTRY_DSN")
+
+def filter_sentry_events(event, hint):
+    """Filter out expected network drops and minor noise from Sentry alerts."""
+    if 'exc_info' in hint:
+        exc_type, exc_value, tb = hint['exc_info']
+        
+        # Check if it's a websocket ConnectionClosedError
+        if exc_type.__name__ == "ConnectionClosedError":
+            # 1011 = Internal Error (often caused by 'keepalive ping timeout')
+            # 1000 = Normal Closure
+            # 1001 = Going Away (Tab closed)
+            # 1006 = Abnormal Closure (Network dropped)
+            if hasattr(exc_value, 'code') and exc_value.code in [1000, 1001, 1006, 1011]:
+                return None  # Returning None drops the event completely
+                
+    return event
+
 if SENTRY_DSN:
     import sentry_sdk
     sentry_sdk.init(
@@ -28,6 +45,7 @@ if SENTRY_DSN:
         profiles_sample_rate=0.1,      # 10% get CPU profiling
         environment=os.getenv("ENVIRONMENT", "production"),
         release=f"adaptifocus@0.3.0",
+        before_send=filter_sentry_events
     )
 
 
