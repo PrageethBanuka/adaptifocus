@@ -74,7 +74,8 @@ def _verify_ws_token(token: str) -> int | None:
     from config import JWT_SECRET, JWT_ALGORITHM
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        return payload.get("user_id")
+        user_id = payload.get("sub")
+        return int(user_id) if user_id else None
     except Exception:
         return None
 
