@@ -131,7 +131,7 @@ async def _retrain_loop():
 @app.on_event("startup")
 async def on_startup():
     """Initialize database and start background tasks."""
-    init_db()
+    await init_db()
     asyncio.create_task(_retrain_loop())
 
 

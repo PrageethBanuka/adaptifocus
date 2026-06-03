@@ -108,8 +108,31 @@ function extractDomain(url) {
   }
 }
 
+function extractSearchQuery(url) {
+  try {
+    const urlObj = new URL(url);
+    if (urlObj.hostname.includes("google.com") && urlObj.pathname === "/search") {
+      return urlObj.searchParams.get("q"); // Returns the search term
+    }
+  } catch (e) {}
+  return null;
+}
+
 async function classifyCurrentPage() {
   if (!currentTab.url || !currentTab.domain) return;
+  
+  // Get active study topic if we're in a flow
+  let activeStudyTopic = null;
+  const storageResult = await chrome.storage.local.get("temporary_study_topic");
+  if (storageResult.temporary_study_topic) {
+    activeStudyTopic = storageResult.temporary_study_topic.query;
+    // Clear it if older than 15 mins
+    if (Date.now() - storageResult.temporary_study_topic.timestamp > 15 * 60 * 1000) {
+      chrome.storage.local.remove("temporary_study_topic");
+      activeStudyTopic = null;
+    }
+  }
+
   try {
     const res = await fetch(`${API_BASE}/classify`, {
       method: "POST",
@@ -119,6 +142,7 @@ async function classifyCurrentPage() {
         domain: currentTab.domain,
         title: currentTab.title || "",
         session_active: currentTab.sessionId !== null,
+        study_topic: activeStudyTopic,
       }),
     });
     if (res.ok) {
@@ -161,6 +185,17 @@ function switchTab(newUrl, newTitle) {
       timestamp: currentTab.startTime ? new Date(currentTab.startTime).toISOString() : new Date().toISOString(),
     });
     chrome.storage.local.set({ pending_events: pendingEvents });
+  }
+
+  // Capture search query semantics
+  const query = extractSearchQuery(newUrl);
+  if (query) {
+    chrome.storage.local.set({ 
+      temporary_study_topic: {
+        query: query,
+        timestamp: Date.now()
+      }
+    });
   }
 
   // Update current tab
