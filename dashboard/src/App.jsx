@@ -20,6 +20,7 @@ function App() {
   const [days, setDays] = useState(7)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [isAuthError, setIsAuthError] = useState(false)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -34,6 +35,7 @@ function App() {
   async function loadData() {
     setLoading(true)
     setError(null)
+    setIsAuthError(false)
     try {
       const [summaryData, hourlyData, interventionData, streakData, dailyData, weeklyData] = await Promise.all([
         getFocusSummary(days),
@@ -51,6 +53,7 @@ function App() {
       setWeeklyReport(weeklyData)
     } catch (e) {
       setError(e.message)
+      if (e.isAuthError) setIsAuthError(true)
     } finally {
       setLoading(false)
     }
@@ -61,10 +64,24 @@ function App() {
       <div className="dashboard-container">
         <div className="empty-state" style={{ paddingTop: '80px' }}>
           <div className="empty-icon"><Focus size={20} /></div>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '6px' }}>Could not load data</p>
-          <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-            {error}
-          </p>
+          {isAuthError ? (
+            <>
+              <p style={{ color: 'var(--text-secondary)', marginBottom: '6px' }}>Authentication Required</p>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '360px', lineHeight: '1.5' }}>
+                Please open this dashboard from the <strong style={{ color: 'var(--text-secondary)' }}>AdaptiFocus Chrome extension</strong> to sign in automatically.
+              </p>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '12px', opacity: 0.6 }}>
+                Click the extension icon → "Dashboard" link
+              </p>
+            </>
+          ) : (
+            <>
+              <p style={{ color: 'var(--text-secondary)', marginBottom: '6px' }}>Could not load data</p>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                {error}
+              </p>
+            </>
+          )}
           <button
             className="control-btn"
             style={{ marginTop: '16px' }}

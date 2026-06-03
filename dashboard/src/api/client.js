@@ -13,6 +13,13 @@ async function fetchJSON(path) {
   
   const res = await fetch(`${API_BASE}${path}`, { headers });
   if (!res.ok) {
+    if (res.status === 401) {
+      // Clear stale token
+      localStorage.removeItem('adaptifocus_token');
+      const err = new Error("Session expired or not logged in. Please open this dashboard from the AdaptiFocus extension to sign in.");
+      err.isAuthError = true;
+      throw err;
+    }
     if (res.status === 429) throw new Error("Rate limit exceeded. Please wait a minute.");
     if (res.status === 502 || res.status === 503) throw new Error("Server is waking up from a cold start. Try again in 30s.");
     throw new Error(`API error: ${res.status}`);
