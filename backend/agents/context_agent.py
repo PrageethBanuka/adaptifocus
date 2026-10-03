@@ -21,6 +21,7 @@ except ImportError:
     genai = None
 
 from agents.base_agent import BaseAgent
+from agents.contracts import ContextInput, ContextResult
 
 
 # ── Domain categories ────────────────────────────────────────────────────────
@@ -113,7 +114,7 @@ def _extract_domain(url: Optional[str]) -> Optional[str]:
         return None
 
 
-class ContextAgent(BaseAgent):
+class ContextAgent(BaseAgent[ContextInput, ContextResult]):
     """Analyzes the academic context of current browsing activity.
 
     Input data shape:
@@ -140,7 +141,8 @@ class ContextAgent(BaseAgent):
     def name(self) -> str:
         return "Context Agent"
 
-    def analyze(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def analyze(self, data: ContextInput | Dict[str, Any]) -> ContextResult:
+        data = ContextInput.model_validate(data)
         url = data.get("current_url")
         title = data.get("current_title", "") or ""
         domain = data.get("current_domain") or _extract_domain(url)
@@ -268,14 +270,14 @@ class ContextAgent(BaseAgent):
 
             confidence = min(1.0, abs(context_score) * 1.5)
 
-        return {
+        return ContextResult.model_validate({
             "classification": classification,
             "confidence": round(confidence, 3),
             "topic_relevance": round(topic_relevance, 3),
             "context_score": round(context_score, 3),
             "reasons": reasons,
             "is_adult": is_adult,
-        }
+        })
 
     # ── Private scoring methods ──────────────────────────────────────────
 

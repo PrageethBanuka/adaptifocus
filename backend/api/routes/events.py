@@ -10,7 +10,7 @@ from sqlalchemy import func
 from database.db import get_db
 from database.models import BrowsingEvent, User
 from api.models.schemas import EventCreate, EventResponse
-from api.auth import require_user
+from api.auth import require_consent
 from cache import cache
 from rate_limiter import limiter, RATE_WRITE
 from agents.context_agent import ContextAgent, _extract_domain, DISTRACTION_DOMAINS, MIXED_DOMAINS
@@ -28,7 +28,7 @@ async def create_event(
     event: EventCreate,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_user),
+    user: User = Depends(require_consent),
 ):
     """Ingest a browsing event from the extension."""
     domain = event.domain or _extract_domain(event.url)
@@ -89,7 +89,7 @@ async def create_event_batch(
     events: list[EventCreate],
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_user),
+    user: User = Depends(require_consent),
 ):
     """Ingest a batch of browsing events from the extension."""
     if not events:

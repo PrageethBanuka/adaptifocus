@@ -101,3 +101,13 @@ async def require_user(user: Optional[User] = Depends(get_current_user)) -> User
             headers={"WWW-Authenticate": "Bearer"},
         )
     return user
+
+
+async def require_consent(user: User = Depends(require_user)) -> User:
+    """Require explicit consent before processing browsing-derived data."""
+    if not user.consent_given:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Data collection consent is required",
+        )
+    return user

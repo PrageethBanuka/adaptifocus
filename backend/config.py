@@ -23,7 +23,11 @@ API_HOST = "0.0.0.0"
 API_PORT = 8000
 
 # ── Authentication ───────────────────────────────────────────────────────────
-JWT_SECRET = os.getenv("JWT_SECRET", "adaptifocus-dev-secret-change-in-prod")
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development").strip().lower()
+DEV_MODE = os.getenv("DEV_MODE", "1" if ENVIRONMENT == "development" else "0") == "1"
+JWT_SECRET = os.getenv("JWT_SECRET")
+if not JWT_SECRET and ENVIRONMENT != "production":
+    JWT_SECRET = "adaptifocus-local-development-secret"
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_HOURS = 72  # Token valid for 3 days
 
@@ -58,3 +62,16 @@ EXPERIMENT_GROUP_CONTROL = "control"        # Tracking only
 EXPERIMENT_GROUP_STATIC = "static_block"    # Basic blocking
 EXPERIMENT_GROUP_ADAPTIVE = "adaptive"      # Full AdaptiFocus
 
+
+def validate_settings() -> None:
+    """Fail fast when production authentication settings are unsafe."""
+    if ENVIRONMENT != "production":
+        return
+
+    if not JWT_SECRET or len(JWT_SECRET) < 32:
+        raise RuntimeError(
+            "JWT_SECRET must be configured with at least 32 characters in production"
+        )
+
+    if DEV_MODE:
+        raise RuntimeError("DEV_MODE must be disabled in production")

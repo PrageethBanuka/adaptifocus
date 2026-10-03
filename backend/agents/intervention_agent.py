@@ -15,6 +15,7 @@ from __future__ import annotations
 from typing import Any, Dict
 
 from agents.base_agent import BaseAgent
+from agents.contracts import InterventionInput, InterventionProposal
 from config import (
     NUDGE_THRESHOLD_SECONDS,
     WARN_THRESHOLD_SECONDS,
@@ -63,7 +64,7 @@ def _format_duration(seconds: int) -> str:
     return f"{minutes}m {remaining_secs}s"
 
 
-class InterventionAgent(BaseAgent):
+class InterventionAgent(BaseAgent[InterventionInput, InterventionProposal]):
     """Decides the intervention level based on context and pattern analysis.
 
     Input data shape:
@@ -100,44 +101,41 @@ class InterventionAgent(BaseAgent):
     def name(self) -> str:
         return "Intervention Agent"
 
-    def analyze(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        context = data.get("context_result", {})
-        pattern = data.get("pattern_result", {})
-        time_on_current = data.get("time_on_current_seconds", 0)
-        current_domain = data.get("current_domain")
-        session_active = data.get("session_active", False)
-        total_distraction_today = data.get("total_distraction_seconds_today", 0)
-        interventions_today = data.get("interventions_today", 0)
+    def analyze(self, data: InterventionInput | Dict[str, Any]) -> InterventionProposal:
+        data = InterventionInput.model_validate(data)
+        context = data.context_result
+        pattern = data.pattern_result
+        time_on_current = data.time_on_current_seconds
+        current_domain = data.current_domain
+        session_active = data.session_active
+        interventions_today = data.interventions_today
 
-        classification = context.get("classification", "neutral")
-        context_score = context.get("context_score", 0.0)
-        confidence = context.get("confidence", 0.0)
-        is_adult = context.get("is_adult", False)
+        classification = context.classification
+        confidence = context.confidence
+        is_adult = context.is_adult
 
         # ── 🚨 Instant block for explicit adult content ───────────────────
         if is_adult:
-            return {
+            return InterventionProposal.model_validate({
                 "should_intervene": True,
                 "level": "hard_block",
                 "message": "Explicit content is blocked. Please maintain focus on your studies.",
                 "urgency": 1.0,
                 "cooldown_seconds": 10,
-            }
+            })
 
         # ── No intervention needed for study/neutral content ─────────────
         if classification != "distraction" or confidence < 0.3:
-            return {
+            return InterventionProposal.model_validate({
                 "should_intervene": False,
                 "level": "none",
                 "message": "",
                 "urgency": 0.0,
                 "cooldown_seconds": 30,
-            }
+            })
 
         # ── Calculate adjusted thresholds based on patterns ──────────────
-        domain_risk = pattern.get("domain_risk_scores", {}).get(
-            current_domain, 0.5
-        )
+        domain_risk = pattern.domain_risk_scores.get(current_domain, 0.5)
 
         # Higher-risk domains get tighter thresholds
         risk_multiplier = max(0.5, 1.0 - (domain_risk * 0.5))
@@ -157,8 +155,8 @@ class InterventionAgent(BaseAgent):
         # ── Adaptive escalation based on user behavior ───────────────────
         # If user keeps dismissing interventions, tighten thresholds (act sooner)
         # If user is generally compliant, relax thresholds (less annoying)
-        compliance_rate = data.get("user_compliance_rate", 0.5)
-        dismiss_streak = data.get("recent_dismiss_streak", 0)
+        compliance_rate = data.user_compliance_rate
+        dismiss_streak = data.recent_dismiss_streak
 
         if dismiss_streak >= 3:
             # User has dismissed 3+ interventions in a row → escalate faster
@@ -211,18 +209,18 @@ class InterventionAgent(BaseAgent):
             cooldown = 60
 
         else:
-            return {
+            return InterventionProposal.model_validate({
                 "should_intervene": False,
                 "level": "none",
                 "message": "",
                 "urgency": 0.0,
                 "cooldown_seconds": max(5, adjusted_nudge - time_on_current),
-            }
+            })
 
-        return {
+        return InterventionProposal.model_validate({
             "should_intervene": True,
             "level": level,
             "message": message,
             "urgency": urgency,
             "cooldown_seconds": cooldown,
-        }
+        })

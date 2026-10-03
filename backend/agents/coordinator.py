@@ -12,12 +12,13 @@ from __future__ import annotations
 from typing import Any, Dict, List
 
 from agents.base_agent import BaseAgent
+from agents.contracts import CoordinatorInput, CoordinatorResult
 from agents.pattern_agent import PatternAgent
 from agents.context_agent import ContextAgent
 from agents.intervention_agent import InterventionAgent
 
 
-class CoordinatorAgent(BaseAgent):
+class CoordinatorAgent(BaseAgent[CoordinatorInput, CoordinatorResult]):
     """Orchestrates all agents and produces a unified analysis + decision.
 
     Input data shape:
@@ -69,42 +70,45 @@ class CoordinatorAgent(BaseAgent):
     def name(self) -> str:
         return "Coordinator Agent"
 
-    def analyze(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def analyze(self, data: CoordinatorInput | Dict[str, Any]) -> CoordinatorResult:
+        data = CoordinatorInput.model_validate(data)
         # ── Step 1: Pattern analysis on historical data ──────────────────
-        pattern_result = self._pattern_agent.analyze({
-            "events": data.get("historical_events", []),
-        })
+        pattern_result = self._pattern_agent.analyze(
+            {"events": data.historical_events}
+        )
 
         # ── Step 2: Context analysis on current state ────────────────────
-        context_result = self._context_agent.analyze({
-            "current_url": data.get("current_url"),
-            "current_title": data.get("current_title"),
-            "current_domain": data.get("current_domain"),
-            "study_topic": data.get("study_topic"),
-            "session_active": data.get("session_active", False),
-            "recent_domains": data.get("recent_domains", []),
-        })
+        context_result = self._context_agent.analyze(
+            {
+                "current_url": data.current_url,
+                "current_title": data.current_title or "",
+                "current_domain": data.current_domain,
+                "study_topic": data.study_topic,
+                "session_active": data.session_active,
+                "recent_domains": data.recent_domains,
+            }
+        )
 
         # ── Step 3: Intervention decision ────────────────────────────────
-        intervention_result = self._intervention_agent.analyze({
-            "context_result": context_result,
-            "pattern_result": pattern_result,
-            "time_on_current_seconds": data.get("time_on_current_seconds", 0),
-            "current_domain": data.get("current_domain"),
-            "session_active": data.get("session_active", False),
-            "total_distraction_seconds_today": data.get(
-                "total_distraction_seconds_today", 0
-            ),
-            "interventions_today": data.get("interventions_today", 0),
-            "user_compliance_rate": data.get("user_compliance_rate", 0.5),
-            "recent_dismiss_streak": data.get("recent_dismiss_streak", 0),
-        })
+        intervention_result = self._intervention_agent.analyze(
+            {
+                "context_result": context_result,
+                "pattern_result": pattern_result,
+                "time_on_current_seconds": data.time_on_current_seconds,
+                "current_domain": data.current_domain,
+                "session_active": data.session_active,
+                "total_distraction_seconds_today": data.total_distraction_seconds_today,
+                "interventions_today": data.interventions_today,
+                "user_compliance_rate": data.user_compliance_rate,
+                "recent_dismiss_streak": data.recent_dismiss_streak,
+            }
+        )
 
-        return {
-            "decision": intervention_result,
-            "context": context_result,
-            "patterns": pattern_result,
-        }
+        return CoordinatorResult(
+            decision=intervention_result,
+            context=context_result,
+            patterns=pattern_result,
+        )
 
     @property
     def agents(self) -> List[BaseAgent]:

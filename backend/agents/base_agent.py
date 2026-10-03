@@ -3,10 +3,15 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict
+from typing import Any, Dict, Generic, TypeVar
+
+from pydantic import BaseModel
+
+InputModel = TypeVar("InputModel", bound=BaseModel)
+OutputModel = TypeVar("OutputModel", bound=BaseModel)
 
 
-class BaseAgent(ABC):
+class BaseAgent(ABC, Generic[InputModel, OutputModel]):
     """Base interface for all agents in the AdaptiFocus system.
 
     Each agent:
@@ -24,14 +29,14 @@ class BaseAgent(ABC):
         ...
 
     @abstractmethod
-    def analyze(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def analyze(self, data: InputModel | Dict[str, Any]) -> OutputModel:
         """Run the agent's analysis on the provided data.
 
         Args:
             data: Input dictionary — shape depends on the agent type.
 
         Returns:
-            Result dictionary with the agent's analysis output.
+            Validated result model with the agent's analysis output.
         """
         ...
 
