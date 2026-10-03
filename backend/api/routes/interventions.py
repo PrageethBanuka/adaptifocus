@@ -10,7 +10,7 @@ from sqlalchemy import func
 from database.db import get_db
 from database.models import BrowsingEvent, Intervention, StudySession
 from api.models.schemas import InterventionRequest, InterventionResponse
-from api.auth import require_consent
+from api.auth import require_consent, require_user
 from api.routes.ws import manager as ws_manager
 from database.models import User
 from agents.coordinator import CoordinatorAgent
