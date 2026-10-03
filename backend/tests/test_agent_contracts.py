@@ -4,6 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from agents.contracts import ContextResult, InterventionProposal
+from agents.coordinator import CoordinatorAgent
 
 
 def test_context_result_validates_score_ranges():
@@ -36,3 +37,9 @@ def test_contracts_keep_legacy_read_access_during_migration():
     assert result["classification"] == "study"
     assert result.get("missing", "fallback") == "fallback"
     assert "classification" in result
+
+
+def test_coordinator_normalizes_missing_title():
+    result = CoordinatorAgent().analyze({"current_title": None})
+
+    assert result.context.classification in {"study", "distraction", "neutral"}

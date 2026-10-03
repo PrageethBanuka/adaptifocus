@@ -81,7 +81,7 @@ class CoordinatorAgent(BaseAgent[CoordinatorInput, CoordinatorResult]):
         context_result = self._context_agent.analyze(
             {
                 "current_url": data.current_url,
-                "current_title": data.current_title,
+                "current_title": data.current_title or "",
                 "current_domain": data.current_domain,
                 "study_topic": data.study_topic,
                 "session_active": data.session_active,
