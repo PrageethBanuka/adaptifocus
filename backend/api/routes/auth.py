@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from database.db import get_db
 from database.models import User
 from api.auth import verify_google_token, create_token, require_user
+from config import DEV_MODE
 from rate_limiter import limiter, RATE_AUTH, RATE_STANDARD
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -117,8 +118,7 @@ class DevLoginRequest(BaseModel):
 @limiter.limit(RATE_AUTH)
 async def dev_login(request: Request, req: DevLoginRequest, db: AsyncSession = Depends(get_db)):
     """Dev mode login — skips Google OAuth. Only works locally."""
-    import os
-    if os.getenv("DEV_MODE", "1") != "1":
+    if not DEV_MODE:
         raise HTTPException(403, "Dev login is only available in development mode")
 
     req_email = req.email.strip().lower()
@@ -143,8 +143,7 @@ async def dev_login(request: Request, req: DevLoginRequest, db: AsyncSession = D
 @limiter.limit(RATE_AUTH)
 async def dev_signup(request: Request, req: DevLoginRequest, db: AsyncSession = Depends(get_db)):
     """Dev mode sign up — explicitly creates a new user."""
-    import os
-    if os.getenv("DEV_MODE", "1") != "1":
+    if not DEV_MODE:
         raise HTTPException(403, "Dev signup is only available in development mode")
 
     req_email = req.email.strip().lower()

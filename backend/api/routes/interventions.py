@@ -10,7 +10,7 @@ from sqlalchemy import func
 from database.db import get_db
 from database.models import BrowsingEvent, Intervention, StudySession
 from api.models.schemas import InterventionRequest, InterventionResponse
-from api.auth import require_user
+from api.auth import require_consent
 from api.routes.ws import manager as ws_manager
 from database.models import User
 from agents.coordinator import CoordinatorAgent
@@ -24,7 +24,7 @@ _coordinator = CoordinatorAgent()
 async def check_intervention(
     request: InterventionRequest,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_user),
+    user: User = Depends(require_consent),
 ):
     """Check whether an intervention should be triggered for current browsing.
 

@@ -119,6 +119,11 @@ Trained on Kaggle browsing behavior dataset:
 
 MIT
 
+## 🧭 Product and architecture plan
+
+- [Notion-ready product and delivery plan](docs/notion_plan.md)
+- [Current system, target architecture, and startup strategy](docs/current_system_and_startup_strategy.md)
+
 ## 👤 Author
 
 Banuka Rajapaksha

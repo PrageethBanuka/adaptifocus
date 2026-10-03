@@ -7,6 +7,7 @@ from starlette.requests import Request
 
 import asyncio
 from database.db import init_db
+from config import validate_settings
 from api.routes import events, interventions, sessions, analytics, auth, admin, ml, streaks, reports, ws
 
 # ── Sentry Error Monitoring ──────────────────────────────────────────────────
@@ -131,6 +132,7 @@ async def _retrain_loop():
 @app.on_event("startup")
 async def on_startup():
     """Initialize database and start background tasks."""
+    validate_settings()
     await init_db()
     asyncio.create_task(_retrain_loop())
 
@@ -166,4 +168,3 @@ def classify_page(request: Request, data: dict):
 @app.get("/health")
 def health():
     return {"status": "ok"}
-
