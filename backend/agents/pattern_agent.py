@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 
 from agents.base_agent import BaseAgent
+from agents.contracts import PatternInput, PatternResult
 
 
 # Default known distraction domains
@@ -60,7 +61,7 @@ def _hour_bucket(timestamp: Optional[str]) -> Optional[int]:
         return None
 
 
-class PatternAgent(BaseAgent):
+class PatternAgent(BaseAgent[PatternInput, PatternResult]):
     """Discovers distraction patterns from browsing event history.
 
     Input data shape:
@@ -98,16 +99,17 @@ class PatternAgent(BaseAgent):
     def name(self) -> str:
         return "Pattern Agent"
 
-    def analyze(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        events: List[Dict] = data.get("events", [])
+    def analyze(self, data: PatternInput | Dict[str, Any]) -> PatternResult:
+        data = PatternInput.model_validate(data)
+        events = [event.model_dump() for event in data.events]
 
         if not events:
-            return {
+            return PatternResult.model_validate({
                 "patterns": [],
                 "hourly_vulnerability": {},
                 "domain_risk_scores": {},
                 "distraction_chains": [],
-            }
+            })
 
         patterns = []
 
@@ -175,12 +177,12 @@ class PatternAgent(BaseAgent):
                 "data": {"domains": dict(long_dwell[:10])},
             })
 
-        return {
+        return PatternResult.model_validate({
             "patterns": patterns,
             "hourly_vulnerability": hourly_vuln,
             "domain_risk_scores": domain_risks,
             "distraction_chains": chains,
-        }
+        })
 
     # ── Private analysis methods ─────────────────────────────────────────
 
